@@ -15,11 +15,11 @@
 
 #include <ctype.h>
 
-static const char *usage = (char *) "\
+static const char *usage = "\
 Ocaml Options (available with -ocaml)\n\
      -oldvarnames    - Old intermediary method names for variable wrappers\n\
      -prefix <name>  - Set a prefix <name> to be prepended to all names\n\
-     -suffix <name>  - Change .cxx to something else\n\
+     -suffix <name>  - Deprecated alias for general option -cppext\n\
      -where          - Emit library location\n\
 \n";
 
@@ -29,7 +29,7 @@ static int const_enum = 0;
 static int static_member_function = 0;
 static int generate_sizeof = 0;
 static String *prefix = 0;
-static char *ocaml_path = (char *) "ocaml";
+static const char *ocaml_path = "ocaml";
 static bool old_variable_names = false;
 static String *classname = 0;
 static String *module = 0;
@@ -114,6 +114,7 @@ public:
 	  }
 	} else if (strcmp(argv[i], "-suffix") == 0) {
 	  if (argv[i + 1]) {
+	    Printf(stderr, "swig: warning: -suffix option deprecated.  SWIG 3.0.4 and later provide a -cppext option which should be used instead.\n");
 	    SWIG_config_cppext(argv[i + 1]);
 	    Swig_mark_arg(i);
 	    Swig_mark_arg(i + 1);
@@ -268,8 +269,8 @@ public:
 
     Swig_banner(f_begin);
 
-    Printf(f_runtime, "\n");
-    Printf(f_runtime, "#define SWIGOCAML\n");
+    Printf(f_runtime, "\n\n#ifndef SWIGOCAML\n#define SWIGOCAML\n#endif\n\n");
+
     Printf(f_runtime, "#define SWIG_MODULE \"%s\"\n", module);
     /* Module name */
     Printf(f_mlbody, "let module_name = \"%s\"\n", module);
@@ -324,6 +325,7 @@ public:
 
     if (directorsEnabled()) {
       // Insert director runtime into the f_runtime file (make it occur before %header section)
+      Swig_insert_file("director_common.swg", f_runtime);
       Swig_insert_file("director.swg", f_runtime);
     }
 
@@ -618,9 +620,9 @@ public:
     }
 
     /* if the object is a director, and the method call originated from its
-     * underlying python object, resolve the call by going up the c++ 
-     * inheritance chain.  otherwise try to resolve the method in python.  
-     * without this check an infinite loop is set up between the director and 
+     * underlying ocaml object, resolve the call by going up the c++ 
+     * inheritance chain.  otherwise try to resolve the method in ocaml.
+     * without this check an infinite loop is set up between the director and
      * shadow class method calls.
      */
 
@@ -674,6 +676,14 @@ public:
 	Printv(f->code, tm, "\n", NIL);
       }
     }
+
+    /* See if there is any return cleanup code */
+    if ((tm = Swig_typemap_lookup("ret", n, Swig_cresult_name(), 0))) {
+      Replaceall(tm, "$source", Swig_cresult_name());
+      Printf(f->code, "%s\n", tm);
+      Delete(tm);
+    }
+
     // Free any memory allocated by the function being wrapped..
 
     if ((tm = Swig_typemap_lookup("swig_result", n, Swig_cresult_name(), 0))) {
@@ -988,7 +998,7 @@ public:
       find_marker += strlen("(*Stream:");
 
       if (next) {
-	int num_chars = next - find_marker;
+	int num_chars = (int)(next - find_marker);
 	String *stream_name = NewString(find_marker);
 	Delslice(stream_name, num_chars, Len(stream_name));
 	File *fout = Swig_filebyname(stream_name);
@@ -999,7 +1009,7 @@ public:
 	  if (!following)
 	    following = next + strlen(next);
 	  String *chunk = NewString(next);
-	  Delslice(chunk, following - next, Len(chunk));
+	  Delslice(chunk, (int)(following - next), Len(chunk));
 	  Printv(fout, chunk, NIL);
 	}
       }
@@ -1285,6 +1295,9 @@ public:
    * typedef enum and enum are handled.  I need to produce consistent names,
    * which means looking up and registering by typedef and enum name. */
   int enumDeclaration(Node *n) {
+    if (getCurrentClass() && (cplus_mode != PUBLIC))
+      return SWIG_NOWRAP;
+
     String *name = Getattr(n, "name");
     if (name) {
       String *oname = NewString(name);
@@ -1350,9 +1363,6 @@ public:
 
   /*
    * Modified polymorphism code for Ocaml language module.
-   * Original:
-   * C++/Python polymorphism demo code, copyright (C) 2002 Mark Rose 
-   * <mrose@stm.lbl.gov>
    *
    * TODO
    *

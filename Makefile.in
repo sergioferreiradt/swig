@@ -21,7 +21,7 @@ FLAGS       = -k -s
 #####################################################################
 
 SHELL       = /bin/sh
-SWIG_LIB    = @swig_lib@
+SWIG_LIB_INSTALL = @SWIG_LIB_INSTALL@
 BIN_DIR     = @bindir@
 ENABLE_CCACHE = @ENABLE_CCACHE@
 TARGET_NOEXE= swig
@@ -49,14 +49,11 @@ maintainer: libfiles
 # Documentation
 #####################################################################
 
-docs: docs-main docs-ccache
+docs: docs-main
 
 docs-main:
 	@echo making docs
 	@test -d $(DOCS) || exit 0; cd $(DOCS) && $(MAKE) all clean-baks
-
-docs-ccache:
-	test -z "$(ENABLE_CCACHE)" || (cd $(CCACHE) && $(MAKE) docs)
 
 #####################################################################
 # All the languages SWIG speaks (when it wants to)
@@ -70,6 +67,7 @@ skip-guile	= test -n "@SKIP_GUILE@"
 skip-mzscheme	= test -n "@SKIP_MZSCHEME@"
 skip-ruby	= test -n "@SKIP_RUBY@"
 skip-php	= test -n "@SKIP_PHP@"
+skip-php5	= test -n "@SKIP_PHP5@"
 skip-ocaml      = test -n "@SKIP_OCAML@"
 skip-octave     = test -n "@SKIP_OCTAVE@"
 skip-pike       = test -n "@SKIP_PIKE@"
@@ -82,8 +80,10 @@ skip-clisp	= test -n "@SKIP_CLISP@"
 skip-cffi	= test -n "@SKIP_CFFI@"
 skip-uffi	= test -n "@SKIP_UFFI@"
 skip-r		= test -n "@SKIP_R@"
+skip-scilab     = test -n "@SKIP_SCILAB@"
 skip-go		= test -n "@SKIP_GO@"
 skip-d		= test -n "@SKIP_D@"
+skip-javascript	= test -n "@SKIP_JAVASCRIPT@"
 
 # Additional dependencies for some tests
 skip-gcj        = test -n "@SKIP_GCJ@"
@@ -92,16 +92,18 @@ skip-android    = test -n "@SKIP_ANDROID@"
 # Special errors test-case
 skip-errors	= test -n ""
 
+check-%-enabled:
+	@if $(skip-$*); then					\
+	  echo skipping $* version;				\
+	  exit 1;   \
+	fi
+
 #####################################################################
 # CHECK
 #####################################################################
 
 ACTION = check
 NOSKIP =
-
-chk-set-swiglib		= SWIG_LIB=@ROOT_DIR@/Lib
-chk-set-swig		= SWIG=@ROOT_DIR@/$(TARGET)
-chk-set-env = $(chk-set-swiglib) $(chk-set-swig)
 
 check-aliveness:
 	test -x ./$(TARGET)
@@ -116,7 +118,8 @@ check-aliveness:
 	@$(skip-ruby)     || ./$(TARGET) -ruby       -help
 	@$(skip-ocaml)    || ./$(TARGET) -ocaml      -help
 	@$(skip-octave)   || ./$(TARGET) -octave     -help
-	@$(skip-php)      || ./$(TARGET) -php        -help
+	@$(skip-php)      || ./$(TARGET) -php7       -help
+	@$(skip-php5)     || ./$(TARGET) -php5       -help
 	@$(skip-pike)     || ./$(TARGET) -pike       -help
 	@$(skip-chicken)  || ./$(TARGET) -chicken    -help
 	@$(skip-csharp)   || ./$(TARGET) -csharp     -help
@@ -127,8 +130,10 @@ check-aliveness:
 	@$(skip-cffi)     || ./$(TARGET) -cffi       -help
 	@$(skip-lua)      || ./$(TARGET) -lua        -help
 	@$(skip-r) 	  || ./$(TARGET) -r          -help
+	@$(skip-scilab)   || ./$(TARGET) -scilab     -help
 	@$(skip-go)	  || ./$(TARGET) -go         -help
 	@$(skip-d) 	  || ./$(TARGET) -d          -help
+	@$(skip-javascript) || ./$(TARGET) -javascript -help
 
 check-ccache:
 	test -z "$(ENABLE_CCACHE)" || (cd $(CCACHE) && $(MAKE) check)
@@ -139,6 +144,7 @@ check-versions:					\
 	check-perl5-version			\
 	check-python-version			\
 	check-java-version			\
+	check-javascript-version			\
 	check-android-version			\
 	check-guile-version			\
 	check-mzscheme-version			\
@@ -146,6 +152,7 @@ check-versions:					\
 	check-ocaml-version			\
 	check-octave-version			\
 	check-php-version			\
+	check-php5-version			\
 	check-pike-version			\
 	check-chicken-version			\
 	check-csharp-version			\
@@ -156,6 +163,7 @@ check-versions:					\
 	check-uffi-version			\
 	check-cffi-version			\
 	check-r-version				\
+	check-scilab-version			\
 	check-go-version			\
 	check-d-version
 
@@ -185,6 +193,7 @@ check-examples:					\
 	check-ocaml-examples			\
 	check-octave-examples			\
 	check-php-examples			\
+	check-php5-examples			\
 	check-pike-examples			\
 	check-chicken-examples                  \
 	check-csharp-examples                   \
@@ -195,8 +204,10 @@ check-examples:					\
 	check-uffi-examples			\
 	check-cffi-examples			\
 	check-r-examples			\
+	check-scilab-examples			\
 	check-go-examples			\
-	check-d-examples
+	check-d-examples			\
+	check-javascript-examples
 
 tcl_examples       :=$(shell sed '/^\#/d' $(srcdir)/Examples/tcl/check.list)
 perl5_examples     :=$(shell sed '/^\#/d' $(srcdir)/Examples/perl5/check.list)
@@ -209,6 +220,7 @@ ruby_examples      :=$(shell sed '/^\#/d' $(srcdir)/Examples/ruby/check.list)
 ocaml_examples     :=$(shell sed '/^\#/d' $(srcdir)/Examples/ocaml/check.list)
 octave_examples    :=$(shell sed '/^\#/d' $(srcdir)/Examples/octave/check.list)
 php_examples       :=$(shell sed '/^\#/d' $(srcdir)/Examples/php/check.list)
+php5_examples      :=$(shell sed '/^\#/d' $(srcdir)/Examples/php5/check.list)
 pike_examples      :=$(shell sed '/^\#/d' $(srcdir)/Examples/pike/check.list)
 chicken_examples   :=$(shell sed '/^\#/d' $(srcdir)/Examples/chicken/check.list)
 csharp_examples    :=$(shell sed '/^\#/d' $(srcdir)/Examples/csharp/check.list)
@@ -219,8 +231,10 @@ clisp_examples     :=
 uffi_examples      :=
 cffi_examples      :=
 r_examples         :=$(shell sed '/^\#/d' $(srcdir)/Examples/r/check.list)
+scilab_examples    :=$(shell sed '/^\#/d' $(srcdir)/Examples/scilab/check.list)
 go_examples        :=$(shell sed '/^\#/d' $(srcdir)/Examples/go/check.list)
 d_examples         :=$(shell sed '/^\#/d' $(srcdir)/Examples/d/check.list)
+javascript_examples:=$(shell sed '/^\#/d' $(srcdir)/Examples/javascript/check.list)
 
 # all examples
 check-%-examples :
@@ -238,16 +252,18 @@ check-%-examples :
 
 # individual example
 %.actionexample:
+	@cd Examples && $(MAKE) Makefile
 	@echo $(ACTION)ing Examples/$(LANGUAGE)/$*
-	@(cd Examples/$(LANGUAGE)/$* && $(MAKE) $(FLAGS) $(chk-set-env) $(ACTION) RUNPIPE=$(RUNPIPE))
+	@(cd Examples/$(LANGUAGE)/$* && $(MAKE) $(FLAGS) $(ACTION) RUNPIPE=$(RUNPIPE))
 
 # gcj individual example
 java.actionexample:
+	@cd Examples && $(MAKE) Makefile
 	@if $(skip-gcj); then					\
-          echo "skipping Examples/$(LANGUAGE)/java $(ACTION) (gcj test)";	\
-        else							\
+	  echo "skipping Examples/$(LANGUAGE)/java $(ACTION) (gcj test)";	\
+	else							\
 	  echo $(ACTION)ing Examples/$(LANGUAGE)/java;		\
-	  (cd Examples/$(LANGUAGE)/java && $(MAKE) $(FLAGS) $(chk-set-env) $(ACTION)) \
+	  (cd Examples/$(LANGUAGE)/java && $(MAKE) $(FLAGS) $(ACTION) RUNPIPE=$(RUNPIPE)) \
 	fi
 
 # Checks testcases in the test-suite excluding those which are known to be broken
@@ -263,6 +279,7 @@ check-test-suite:				\
 	check-ocaml-test-suite			\
 	check-octave-test-suite			\
 	check-php-test-suite			\
+	check-php5-test-suite			\
 	check-pike-test-suite			\
 	check-csharp-test-suite			\
 	check-modula3-test-suite		\
@@ -273,8 +290,10 @@ check-test-suite:				\
 	check-cffi-test-suite			\
 	check-chicken-test-suite		\
 	check-r-test-suite			\
+	check-scilab-test-suite			\
 	check-go-test-suite			\
-	check-d-test-suite
+	check-d-test-suite			\
+	check-javascript-test-suite
 
 check-%-test-suite:
 	@if test -z "$(skip-$*)"; then					\
@@ -315,6 +334,7 @@ all-test-suite:					\
 	all-ocaml-test-suite			\
 	all-octave-test-suite			\
 	all-php-test-suite			\
+	all-php5-test-suite			\
 	all-pike-test-suite			\
 	all-csharp-test-suite			\
 	all-modula3-test-suite			\
@@ -325,8 +345,10 @@ all-test-suite:					\
 	all-cffi-test-suite			\
 	all-chicken-test-suite			\
 	all-r-test-suite			\
+	all-scilab-test-suite   		\
 	all-go-test-suite			\
-	all-d-test-suite
+	all-d-test-suite			\
+	all-javascript-test-suite
 
 all-%-test-suite:
 	@$(MAKE) $(FLAGS) check-$*-test-suite ACTION=all
@@ -343,6 +365,7 @@ broken-test-suite:				\
 	broken-ocaml-test-suite			\
 	broken-octave-test-suite		\
 	broken-php-test-suite			\
+	broken-php5-test-suite			\
 	broken-pike-test-suite			\
 	broken-csharp-test-suite		\
 	broken-modula3-test-suite		\
@@ -353,8 +376,10 @@ broken-test-suite:				\
 	broken-cffi-test-suite			\
 	broken-chicken-test-suite		\
 	broken-r-test-suite			\
+	broken-scilab-test-suite           	\
 	broken-go-test-suite			\
-	broken-d-test-suite
+	broken-d-test-suite			\
+	broken-javascript-test-suite
 
 broken-%-test-suite:
 	@$(MAKE) $(FLAGS) check-$*-test-suite ACTION=broken
@@ -391,9 +416,9 @@ clean-ccache:
 # DISTCLEAN - clean what configure built
 #####################################################################
 
-DISTCLEAN-DEAD = config.status config.log config.cache swig.spec Makefile mkmf.log libtool preinst-swig
+DISTCLEAN-DEAD = config.status config.log config.cache swig.spec Makefile mkmf.log preinst-swig
 
-distclean-helper: distclean-test-suite distclean-examples distclean-dead
+distclean-helper: distclean-test-suite distclean-examples distclean-tools distclean-dead
 
 distclean: distclean-source distclean-ccache distclean-helper
 
@@ -410,9 +435,18 @@ distclean-examples:
 	@echo distcleaning Examples
 	@$(MAKE) $(FLAGS) clean-examples
 	@cd Examples && $(MAKE) $(FLAGS) distclean
+	@if test "x$(srcdir)" != "x."; then \
+		for mkfile in `cd $(srcdir) && find Examples/ -type f -name Makefile`; do \
+			rm -f "$$mkfile"; \
+		done; \
+	fi
 
 distclean-ccache:
 	@test -z "$(ENABLE_CCACHE)" || (cd $(CCACHE) && $(MAKE) $(FLAGS) distclean)
+
+distclean-tools:
+	@echo distcleaning Tools
+	@cd Tools/javascript && $(MAKE) $(FLAGS) distclean
 
 distclean-dead:
 	rm -f $(DISTCLEAN-DEAD)
@@ -430,11 +464,21 @@ maintainer-clean:
 	@echo maintainer-cleaning CCache
 	@test -z "$(ENABLE_CCACHE)" || (cd $(CCACHE) && $(MAKE) $(FLAGS) maintainer-clean)
 	@echo maintainer-cleaning docs
-	@cd $(DOCS) && $(MAKE) $(FLAGS) maintainer-clean
+	@test -d $(DOCS) || exit 0; cd $(DOCS) && $(MAKE) $(FLAGS) maintainer-clean
 	@echo maintainer-cleaning Lib files
 	@rm -f $(srcdir)/Lib/swigwarn.swg
 	@echo distcleaning
 	@$(MAKE) $(FLAGS) distclean-helper
+
+check-maintainer-clean: maintainer-clean
+	@if test "x$(srcdir)" = "x."; then \
+		echo "skipping maintainer-clean check (in-source-tree build)"; \
+		exit 0; \
+	fi; \
+	for file in `find . -type f`; do \
+		echo "file missed by maintainer-clean: $$file"; \
+	done; \
+	test "x$$file" = x && echo "all files cleaned by maintainer-clean"
 
 #####################################################################
 # Update the Lib/swigwarn.swg file
@@ -466,24 +510,25 @@ install-main:
 	@echo "Installing $(DESTDIR)$(BIN_DIR)/`echo $(TARGET_NOEXE) | sed '$(transform)'`@EXEEXT@"
 	@$(INSTALL_PROGRAM) $(TARGET) $(DESTDIR)$(BIN_DIR)/`echo $(TARGET_NOEXE) | sed '$(transform)'`@EXEEXT@
 
-lib-languages = gcj typemaps tcl perl5 python guile java mzscheme ruby php ocaml octave \
-	pike chicken csharp modula3 allegrocl clisp lua cffi uffi r go d
+lib-languages = gcj typemaps tcl perl5 python guile java mzscheme ruby php php5 ocaml octave \
+	pike chicken csharp modula3 allegrocl clisp lua cffi uffi r go d javascript javascript/jsc \
+	javascript/v8 scilab
 
 lib-modules = std
 
 
-install-lib: 
+install-lib:
 	@echo "Installing the SWIG library"
-	@$(MKINSTDIRS) $(DESTDIR)$(SWIG_LIB)
+	@$(MKINSTDIRS) $(DESTDIR)$(SWIG_LIB_INSTALL)
 	@for file in $(srcdir)/Lib/*.i $(srcdir)/Lib/*.swg ; do \
 	    i=`basename $$file` ;				\
-	    echo "Installing $(DESTDIR)$(SWIG_LIB)/$$i";	\
-            $(INSTALL_DATA) $$file $(DESTDIR)$(SWIG_LIB)/$$i;	\
+	    echo "Installing $(DESTDIR)$(SWIG_LIB_INSTALL)/$$i";	\
+	    $(INSTALL_DATA) $$file $(DESTDIR)$(SWIG_LIB_INSTALL)/$$i;	\
 	    done;
 	@for lang in $(lib-languages) $(lib-modules);		\
 	    do							\
 	    echo "Installing language specific files for $$lang"; \
-	    dst=$(DESTDIR)$(SWIG_LIB)/$$lang;			\
+	    dst=$(DESTDIR)$(SWIG_LIB_INSTALL)/$$lang;			\
 	    $(MKINSTDIRS) $$dst;				\
 	     (doti="`cd $(srcdir)/Lib/$$lang && ls *.i 2>/dev/null || echo ''`"; \
 	      dotswg="`cd $(srcdir)/Lib/$$lang && ls *.swg 2>/dev/null || echo ''`"; \
@@ -518,7 +563,7 @@ uninstall-main:
 
 uninstall-lib:
 	@echo "Uninstalling the SWIG library"
-	rm -rf $(DESTDIR)$(SWIG_LIB)/
+	rm -rf $(DESTDIR)$(SWIG_LIB_INSTALL)/
 
 uninstall-ccache:
 	test -z "$(ENABLE_CCACHE)" || (cd $(CCACHE) && $(MAKE) uninstall)
@@ -532,8 +577,9 @@ dd = @PACKAGE_NAME@-@PACKAGE_VERSION@
 srpm = @PACKAGE_NAME@-@PACKAGE_VERSION@
 
 dist:
-	@echo "not implemented - use Tools/makedist.py instead."
-	false
+	@echo "'make dist' not implemented - use Tools/mkdist.py instead - e.g.:"
+	@echo "Tools/mkdist.py @VERSION@ master"
+	@false
 
 srcrpm:
 	rm -fr $(srpm) $(srpm).src.rpm

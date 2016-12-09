@@ -58,13 +58,13 @@
 #define PACKAGE_NAME "swig"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "swig 3.0.1"
+#define PACKAGE_STRING "swig 3.0.10-189"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "swig"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "3.0.1"
+#define PACKAGE_VERSION "3.0.10-189"
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
@@ -86,7 +86,7 @@
 #define SWIG_PLATFORM "Win32"
 
 /* Version number of package */
-#define VERSION "3.0.1"
+#define VERSION "3.0.10-189"
 
 
 /* Default language */

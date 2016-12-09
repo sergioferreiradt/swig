@@ -625,6 +625,28 @@ PHPBN2(MYSQLI_SERVER_PUBLIC_KEY);
 /* Added in PHP 5.6 */
 PHPBN2(LDAP_ESCAPE_DN);
 PHPBN2(LDAP_ESCAPE_FILTER);
+PHPBN2(OPENSSL_DEFAULT_STREAM_CIPHERS);
+PHPBN2(STREAM_CRYPTO_METHOD_ANY_CLIENT);
+PHPBN2(STREAM_CRYPTO_METHOD_ANY_SERVER);
+PHPBN2(STREAM_CRYPTO_METHOD_TLSv1_0_CLIENT);
+PHPBN2(STREAM_CRYPTO_METHOD_TLSv1_0_SERVER);
+PHPBN2(STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT);
+PHPBN2(STREAM_CRYPTO_METHOD_TLSv1_1_SERVER);
+PHPBN2(STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT);
+PHPBN2(STREAM_CRYPTO_METHOD_TLSv1_2_SERVER);
+PHPBN2(PGSQL_CONNECT_ASYNC);
+PHPBN2(PGSQL_CONNECTION_AUTH_OK);
+PHPBN2(PGSQL_CONNECTION_AWAITING_RESPONSE);
+PHPBN2(PGSQL_CONNECTION_MADE);
+PHPBN2(PGSQL_CONNECTION_SETENV);
+PHPBN2(PGSQL_CONNECTION_SSL_STARTUP);
+PHPBN2(PGSQL_CONNECTION_STARTED);
+PHPBN2(PGSQL_DML_ESCAPE);
+PHPBN2(PGSQL_POLLING_ACTIVE);
+PHPBN2(PGSQL_POLLING_FAILED);
+PHPBN2(PGSQL_POLLING_OK);
+PHPBN2(PGSQL_POLLING_READING);
+PHPBN2(PGSQL_POLLING_WRITING);
 
 /* Class names reserved by PHP (case insensitive) */
 PHPCN(directory);
@@ -639,6 +661,21 @@ PHPCN(generator); // As of PHP 5.5
 PHPCN(self);
 PHPCN(static);
 PHPCN(parent);
+/* http://php.net/manual/en/migration70.incompatible.php#migration70.incompatible.other.classes */
+PHPCN(bool); // As of PHP 7.0
+PHPCN(int); // As of PHP 7.0
+PHPCN(float); // As of PHP 7.0
+PHPCN(string); // As of PHP 7.0
+PHPCN(NULL); // As of PHP 7.0
+PHPCN(TRUE); // As of PHP 7.0
+PHPCN(FALSE); // As of PHP 7.0
+PHPCN(resource); // As of PHP 7.0 (currently works but reserved)
+PHPCN(object); // As of PHP 7.0 (currently works but reserved)
+PHPCN(mixed); // As of PHP 7.0 (currently works but reserved)
+PHPCN(numeric); // As of PHP 7.0 (currently works but reserved)
+/* http://php.net/manual/en/migration71.incompatible.php#migration71.incompatible.invalid-class-names */
+PHPCN(iterable); // As of PHP 7.1
+PHPCN(void); // As of PHP 7.1
 /* From extensions (which of these are actually predefined depends which
  * extensions are loaded by default). */
 PHPCN(xmlwriter);

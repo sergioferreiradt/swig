@@ -36,6 +36,7 @@ extern "C" {
   Language *swig_java(void);
   Language *swig_php(void);
   Language *swig_php4(void);
+  Language *swig_php5(void);
   Language *swig_ocaml(void);
   Language *swig_octave(void);
   Language *swig_pike(void);
@@ -49,8 +50,10 @@ extern "C" {
   Language *swig_cffi(void);
   Language *swig_uffi(void);
   Language *swig_r(void);
+  Language *swig_scilab(void);
   Language *swig_go(void);
   Language *swig_d(void);
+  Language *swig_javascript(void);
 }
 
 struct swig_module {
@@ -73,6 +76,7 @@ static swig_module modules[] = {
   {"-go", swig_go, "Go"},
   {"-guile", swig_guile, "Guile"},
   {"-java", swig_java, "Java"},
+  {"-javascript", swig_javascript, "Javascript"},
   {"-lua", swig_lua, "Lua"},
   {"-modula3", swig_modula3, "Modula 3"},
   {"-mzscheme", swig_mzscheme, "Mzscheme"},
@@ -80,13 +84,15 @@ static swig_module modules[] = {
   {"-octave", swig_octave, "Octave"},
   {"-perl", swig_perl5, "Perl"},
   {"-perl5", swig_perl5, 0},
-  {"-php", swig_php, "PHP"},
+  {"-php", swig_php5, 0},
   {"-php4", swig_php4, 0},
-  {"-php5", swig_php, 0},
+  {"-php5", swig_php5, "PHP5"},
+  {"-php7", swig_php, "PHP7"},
   {"-pike", swig_pike, "Pike"},
   {"-python", swig_python, "Python"},
   {"-r", swig_r, "R (aka GNU S)"},
   {"-ruby", swig_ruby, "Ruby"},
+  {"-scilab", swig_scilab, "Scilab"},
   {"-sexp", swig_sexp, "Lisp S-Expressions"},
   {"-tcl", swig_tcl, "Tcl"},
   {"-tcl8", swig_tcl, 0},
@@ -177,11 +183,6 @@ int main(int margc, char **margv) {
 	Swig_mark_arg(i);
       } else if (strcmp(argv[i], "-nolang") == 0) {
 	dl = new Language;
-	Swig_mark_arg(i);
-      } else if ((strcmp(argv[i], "-dnone") == 0) ||
-		 (strcmp(argv[i], "-dhtml") == 0) ||
-		 (strcmp(argv[i], "-dlatex") == 0) || (strcmp(argv[i], "-dascii") == 0) || (strcmp(argv[i], "-stat") == 0)) {
-	Printf(stderr, "swig: Warning. %s option deprecated.\n", argv[i]);
 	Swig_mark_arg(i);
       } else if ((strcmp(argv[i], "-help") == 0) || (strcmp(argv[i], "--help") == 0)) {
 	if (strcmp(argv[i], "--help") == 0)

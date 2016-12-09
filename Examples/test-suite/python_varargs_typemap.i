@@ -6,12 +6,12 @@
 
 %typemap(in) (...)(char *vargs[10]) {
   int i;
-  int argc;
+  Py_ssize_t argc;
   for (i = 0; i < 10; i++) vargs[i] = 0;
   argc = PyTuple_Size(varargs);
   if (argc > 10) {
     PyErr_SetString(PyExc_ValueError, "Too many arguments");
-    return NULL;
+    SWIG_fail;
   }
   for (i = 0; i < argc; i++) {
     PyObject *pyobj = PyTuple_GetItem(varargs, i);
@@ -20,7 +20,7 @@
     PyObject *pystr;
     if (!PyUnicode_Check(pyobj)) {
        PyErr_SetString(PyExc_ValueError, "Expected a string");
-       return NULL;
+       SWIG_fail;
     }
     pystr = PyUnicode_AsUTF8String(pyobj);
     str = strdup(PyBytes_AsString(pystr));
@@ -28,7 +28,7 @@
 %#else  
     if (!PyString_Check(pyobj)) {
        PyErr_SetString(PyExc_ValueError, "Expected a string");
-       return NULL;
+       SWIG_fail;
     }
     str = PyString_AsString(pyobj);
 %#endif

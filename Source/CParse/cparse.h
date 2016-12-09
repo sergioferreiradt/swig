@@ -27,6 +27,7 @@ extern "C" {
   extern int cparse_cplusplus;
   extern int cparse_cplusplusout;
   extern int cparse_start_line;
+  extern String *cparse_unknown_directive;
 
   extern void Swig_cparse_cplusplus(int);
   extern void Swig_cparse_cplusplusout(int);
@@ -56,10 +57,11 @@ extern "C" {
 
 /* util.c */
   extern void Swig_cparse_replace_descriptor(String *s);
+  extern SwigType *Swig_cparse_smartptr(Node *n);
   extern void cparse_normalize_void(Node *);
   extern Parm *Swig_cparse_parm(String *s);
   extern ParmList *Swig_cparse_parms(String *s, Node *file_line_node);
-
+  extern Node *new_node(const_String_or_char_ptr tag);
 
 /* templ.c */
   extern int Swig_cparse_template_expand(Node *n, String *rname, ParmList *tparms, Symtab *tscope);
@@ -76,4 +78,7 @@ extern "C" {
 #define SWIG_WARN_NODE_END(Node) \
   if (wrnfilter) Swig_warnfilter(wrnfilter,0); \
  }
+
+#define COMPOUND_EXPR_VAL(dtype) \
+  ((dtype).type == T_CHAR || (dtype).type == T_WCHAR ? (dtype).rawval : (dtype).val)
 #endif

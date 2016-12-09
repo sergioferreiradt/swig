@@ -40,6 +40,9 @@ int cparse_cplusplus = 0;
 /* Generate C++ compatible code when wrapping C code */
 int cparse_cplusplusout = 0;
 
+/* To allow better error reporting */
+String *cparse_unknown_directive = 0;
+
 /* Private vars */
 static int scan_init = 0;
 static int num_brace = 0;
@@ -147,7 +150,7 @@ String *get_raw_text_balanced(int startchar, int endchar) {
  *  friend ostream& operator<<(ostream&, const char *s);
  *
  * or
- *  friend ostream& operator<<(ostream&, const char *s) { };
+ *  friend ostream& operator<<(ostream&, const char *s) { }
  *
  * ------------------------------------------------------------------------- */
 
@@ -607,7 +610,10 @@ int yylex(void) {
  
 	  */
 
-	  nexttok = Scanner_token(scan);
+	  do {
+	    nexttok = Scanner_token(scan);
+	  } while (nexttok == SWIG_TOKEN_ENDLINE || nexttok == SWIG_TOKEN_COMMENT);
+
 	  if (Scanner_isoperator(nexttok)) {
 	    /* One of the standard C/C++ symbolic operators */
 	    Append(s,Scanner_text(scan));
@@ -678,6 +684,8 @@ int yylex(void) {
 		  Append(s," ");
 		}
 		Append(s,Scanner_text(scan));
+	      } else if (nexttok == SWIG_TOKEN_ENDLINE) {
+	      } else if (nexttok == SWIG_TOKEN_COMMENT) {
 	      } else {
 		Append(s,Scanner_text(scan));
 		needspace = 0;
@@ -714,7 +722,7 @@ int yylex(void) {
 		Setfile(cs,cparse_file);
 		Scanner_push(scan,cs);
 		Delete(cs);
-		return COPERATOR;
+		return CONVERSIONOPERATOR;
 	      }
 	    }
 	    if (termtoken)
@@ -801,8 +809,11 @@ int yylex(void) {
       if (strcmp(yytext, "inline") == 0)
 	return (yylex());
 
-      /* SWIG directives */
     } else {
+      Delete(cparse_unknown_directive);
+      cparse_unknown_directive = NULL;
+
+      /* SWIG directives */
       if (strcmp(yytext, "%module") == 0)
 	return (MODULE);
       if (strcmp(yytext, "%insert") == 0)
@@ -878,6 +889,9 @@ int yylex(void) {
       }
       if (strcmp(yytext, "%warn") == 0)
 	return (WARN);
+
+      /* Note down the apparently unknown directive for error reporting. */
+      cparse_unknown_directive = NewString(yytext);
     }
     /* Have an unknown identifier, as a last step, we'll do a typedef lookup on it. */
 

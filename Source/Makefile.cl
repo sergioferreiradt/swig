@@ -43,7 +43,9 @@ swig_SOURCES =	CParse/cscanner.c		\
 		Modules/emit.cxx		\
 		Modules/go.cxx			\
 		Modules/guile.cxx		\
+		Modules/interface.cxx		\
 		Modules/java.cxx		\
+		Modules/javascript.cxx		\
 		Modules/lang.cxx		\
 		Modules/lua.cxx			\
 		Modules/main.cxx		\
@@ -56,11 +58,13 @@ swig_SOURCES =	CParse/cscanner.c		\
 		Modules/overload.cxx		\
 		Modules/perl5.cxx		\
 		Modules/php.cxx			\
+		Modules/php5.cxx		\
 		Modules/pike.cxx		\
 		Modules/python.cxx		\
 		Modules/r.cxx			\
 		Modules/ruby.cxx		\
 		Modules/s-exp.cxx		\
+		Modules/scilab.cxx		\
 		Modules/swigmain.cxx		\
 		Modules/tcl8.cxx		\
 		Modules/typepass.cxx		\
@@ -72,6 +76,7 @@ swig_SOURCES =	CParse/cscanner.c		\
 		Swig/cwrap.c			\
 		Swig/deprecate.c		\
 		Swig/error.c			\
+		Swig/extend.c			\
 		Swig/fragment.c			\
 		Swig/getopt.c			\
 		Swig/include.c			\

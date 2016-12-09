@@ -16,7 +16,7 @@
 #include <ctype.h>
 
 // Note string broken in half for compilers that can't handle long strings
-static const char *usage = (char *) "\
+static const char *usage = "\
 Guile Options (available with -guile)\n\
      -emitsetters            - Emit procedures-with-setters for variables\n\
                                and structure slots.\n\
@@ -322,8 +322,7 @@ public:
 
     Swig_banner(f_begin);
 
-    Printf(f_runtime, "\n");
-    Printf(f_runtime, "#define SWIGGUILE\n");
+    Printf(f_runtime, "\n\n#ifndef SWIGGUILE\n#define SWIGGUILE\n#endif\n\n");
 
     /* Write out directives and declarations */
 
@@ -1018,7 +1017,7 @@ public:
       if (in_class)
 	goops_name = NewString(memberfunction_name);
       else
-	goops_name = goopsNameMapping(proc_name, (char *) "");
+	goops_name = goopsNameMapping(proc_name, "");
       String *primitive_name = NewString("");
       if (primRenamer)
 	Printv(primitive_name, "primitive:", proc_name, NIL);
@@ -1204,7 +1203,7 @@ public:
       // export wrapper into goops file
       if (!in_class) {		// only if the variable is not part of a class
 	String *class_name = SwigType_typedef_resolve_all(SwigType_base(t));
-	String *goops_name = goopsNameMapping(proc_name, (char *) "");
+	String *goops_name = goopsNameMapping(proc_name, "");
 	String *primitive_name = NewString("");
 	if (primRenamer)
 	  Printv(primitive_name, "primitive:", NIL);
@@ -1300,13 +1299,13 @@ public:
     char *name = GetChar(n, "name");
     char *iname = GetChar(n, "sym:name");
     SwigType *type = Getattr(n, "type");
-    String *value = Getattr(n, "value");
+    String *rawval = Getattr(n, "rawval");
+    String *value = rawval ? rawval : Getattr(n, "value");
     int constasvar = GetFlag(n, "feature:constasvar");
 
 
     String *proc_name;
     String *var_name;
-    String *rvalue;
     Wrapper *f;
     SwigType *nctype;
     String *tm;
@@ -1334,23 +1333,14 @@ public:
     }
     // See if there's a typemap
 
-    bool is_enum_item = (Cmp(nodeType(n), "enumitem") == 0);
-    if (SwigType_type(nctype) == T_STRING) {
-      rvalue = NewStringf("\"%s\"", value);
-    } else if (SwigType_type(nctype) == T_CHAR && !is_enum_item) {
-      rvalue = NewStringf("\'%s\'", value);
-    } else {
-      rvalue = NewString(value);
-    }
-
     if ((tm = Swig_typemap_lookup("constant", n, name, 0))) {
-      Replaceall(tm, "$source", rvalue);
-      Replaceall(tm, "$value", rvalue);
+      Replaceall(tm, "$source", value);
+      Replaceall(tm, "$value", value);
       Replaceall(tm, "$target", name);
       Printv(f_header, tm, "\n", NIL);
     } else {
       // Create variable and assign it a value
-      Printf(f_header, "static %s = %s;\n", SwigType_str(type, var_name), rvalue);
+      Printf(f_header, "static %s = (%s)(%s);\n", SwigType_str(type, var_name), SwigType_str(type, 0), value);
     }
     {
       /* Hack alert: will cleanup later -- Dave */
@@ -1370,7 +1360,6 @@ public:
     Delete(var_name);
     Delete(nctype);
     Delete(proc_name);
-    Delete(rvalue);
     DelWrapper(f);
     return SWIG_OK;
   }

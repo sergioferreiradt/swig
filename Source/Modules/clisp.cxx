@@ -13,7 +13,7 @@
 
 #include "swigmod.h"
 
-static const char *usage = (char *) "\
+static const char *usage = "\
 CLISP Options (available with -clisp)\n\
      -extern-all       - Create clisp definitions for all the functions and\n\
                          global variables otherwise only definitions for\n\
@@ -242,6 +242,9 @@ int CLISP::typedefHandler(Node *n) {
 }
 
 int CLISP::enumDeclaration(Node *n) {
+  if (getCurrentClass() && (cplus_mode != PUBLIC))
+    return SWIG_NOWRAP;
+
   is_function = 0;
   String *name = Getattr(n, "sym:name");
 

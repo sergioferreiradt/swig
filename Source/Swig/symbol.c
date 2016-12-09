@@ -1149,7 +1149,7 @@ Node *Swig_symbol_clookup(const_String_or_char_ptr name, Symtab *n) {
     Symtab *un = Getattr(s, "sym:symtab");
     Node *ss = (!Equal(name, uname) || (un != n)) ? Swig_symbol_clookup(uname, un) : 0;	/* avoid infinity loop */
     if (!ss) {
-      Swig_warning(WARN_PARSE_USING_UNDEF, Getfile(s), Getline(s), "Nothing known about '%s'.\n", Getattr(s, "uname"));
+      Swig_warning(WARN_PARSE_USING_UNDEF, Getfile(s), Getline(s), "Nothing known about '%s'.\n", SwigType_namestr(Getattr(s, "uname")));
     }
     s = ss;
   }
@@ -1221,7 +1221,7 @@ Node *Swig_symbol_clookup_check(const_String_or_char_ptr name, Symtab *n, int (*
     Node *ss;
     ss = Swig_symbol_clookup(Getattr(s, "uname"), Getattr(s, "sym:symtab"));
     if (!ss && !checkfunc) {
-      Swig_warning(WARN_PARSE_USING_UNDEF, Getfile(s), Getline(s), "Nothing known about '%s'.\n", Getattr(s, "uname"));
+      Swig_warning(WARN_PARSE_USING_UNDEF, Getfile(s), Getline(s), "Nothing known about '%s'.\n", SwigType_namestr(Getattr(s, "uname")));
     }
     s = ss;
   }
@@ -1272,7 +1272,7 @@ Node *Swig_symbol_clookup_local(const_String_or_char_ptr name, Symtab *n) {
   while (s && Checkattr(s, "nodeType", "using")) {
     Node *ss = Swig_symbol_clookup_local(Getattr(s, "uname"), Getattr(s, "sym:symtab"));
     if (!ss) {
-      Swig_warning(WARN_PARSE_USING_UNDEF, Getfile(s), Getline(s), "Nothing known about '%s'.\n", Getattr(s, "uname"));
+      Swig_warning(WARN_PARSE_USING_UNDEF, Getfile(s), Getline(s), "Nothing known about '%s'.\n", SwigType_namestr(Getattr(s, "uname")));
     }
     s = ss;
   }
@@ -1320,7 +1320,7 @@ Node *Swig_symbol_clookup_local_check(const_String_or_char_ptr name, Symtab *n, 
   while (s && Checkattr(s, "nodeType", "using")) {
     Node *ss = Swig_symbol_clookup_local_check(Getattr(s, "uname"), Getattr(s, "sym:symtab"), checkfunc);
     if (!ss && !checkfunc) {
-      Swig_warning(WARN_PARSE_USING_UNDEF, Getfile(s), Getline(s), "Nothing known about '%s'.\n", Getattr(s, "uname"));
+      Swig_warning(WARN_PARSE_USING_UNDEF, Getfile(s), Getline(s), "Nothing known about '%s'.\n", SwigType_namestr(Getattr(s, "uname")));
     }
     s = ss;
   }
@@ -1875,15 +1875,15 @@ ParmList *Swig_symbol_template_defargs(Parm *parms, Parm *targs, Symtab *tscope,
 	  Delete(ntq);
 	  ntq = ty;
 	}
-	/* Printf(stderr,"value %s %s %s\n",value,ntr,ntq); */
 	cp = NewParmWithoutFileLineInfo(ntq, 0);
-        if (lp)
-          set_nextSibling(lp, cp);
-        else
-          expandedparms = CopyParm(cp);
+	if (lp) {
+	  set_nextSibling(lp, cp);
+	  Delete(cp);
+	} else {
+	  expandedparms = cp;
+	}
 	lp = cp;
 	tp = nextSibling(tp);
-	Delete(cp);
 	Delete(nt);
 	Delete(ntq);
       } else {

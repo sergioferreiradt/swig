@@ -44,6 +44,9 @@
 %typemap(consttab) SWIGTYPE *, SWIGTYPE *const, SWIGTYPE &, SWIGTYPE &&, SWIGTYPE []
        { SWIG_LUA_CONSTTAB_POINTER("$symname",$value, $1_descriptor) }
 
+%typemap(consttab) SWIGTYPE
+       { SWIG_LUA_CONSTTAB_POINTER("$symname",&$value, $&1_descriptor) }
+
 // member function pointers
 %typemap(consttab) SWIGTYPE (CLASS::*)
        { SWIG_LUA_CONSTTAB_BINARY("$symname", sizeof($type),&$value, $1_descriptor) }
@@ -182,7 +185,7 @@ use %include <std_except.i> instead
 
 // char is changed to a string
 %typemap(throws) char
-%{lua_pushfstring(L,"%c",$1);SWIG_fail;%}
+%{lua_pushlstring(L,&$1,1);SWIG_fail;%}
 
 /*
 Throwing object is a serious problem:

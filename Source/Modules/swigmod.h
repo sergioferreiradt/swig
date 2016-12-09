@@ -18,12 +18,6 @@
 #include "preprocessor.h"
 #include "swigwarn.h"
 
-#if !defined(HAVE_BOOL)
-typedef int bool;
-#define true ((bool)1)
-#define false ((bool)0)
-#endif
-
 #define NOT_VIRTUAL     0
 #define PLAIN_VIRTUAL   1
 #define PURE_VIRTUAL    2
@@ -214,8 +208,9 @@ public:
   /* Miscellaneous */
   virtual int validIdentifier(String *s);	/* valid identifier? */
   virtual int addSymbol(const String *s, const Node *n, const_String_or_char_ptr scope = "");	/* Add symbol        */
+  virtual int addInterfaceSymbol(const String *interface_name, Node *n, const_String_or_char_ptr scope = "");
   virtual void dumpSymbols();
-  virtual Node *symbolLookup(String *s, const_String_or_char_ptr scope = ""); /* Symbol lookup */
+  virtual Node *symbolLookup(const String *s, const_String_or_char_ptr scope = ""); /* Symbol lookup */
   virtual Hash* symbolAddScope(const_String_or_char_ptr scope);
   virtual Hash* symbolScopeLookup(const_String_or_char_ptr scope);
   virtual Hash* symbolScopePseudoSymbolLookup(const_String_or_char_ptr scope);
@@ -291,11 +286,17 @@ protected:
   /* Return the current class prefix */
   String *getClassPrefix() const;
 
+  /* Return the current enum class prefix */
+  String *getEnumClassPrefix() const;
+
   /* Fully qualified type name to use */
   String *getClassType() const;
 
   /* Return true if the current method is part of a smart-pointer */
   int is_smart_pointer() const;
+
+  /* Return the name to use for the given parameter. */
+  virtual String *makeParameterName(Node *n, Parm *p, int arg_num, bool setter = false) const;
 
   /* Some language modules require additional wrappers for virtual methods not declared in sub-classes */
   virtual bool extraDirectorProtectedCPPMethodsRequired() const;
@@ -314,6 +315,9 @@ public:
     the nested classes will be moved to the global scope (like implicit global %feature "flatnested").
   */
   virtual NestedClassSupport nestedClassesSupport() const;
+
+  /* Returns true if the target language supports key word arguments (kwargs) */
+  virtual bool kwargsSupport() const;
 
 protected:
   /* Identifies if a protected members that are generated when the allprotected option is used.
@@ -419,19 +423,24 @@ extern "C" {
 }
 
 /* Contracts */
-
 void Swig_contracts(Node *n);
 void Swig_contract_mode_set(int flag);
 int Swig_contract_mode_get();
 
 /* Browser */
-
 void Swig_browser(Node *n, int);
 void Swig_default_allocators(Node *n);
 void Swig_process_types(Node *n);
+
+/* Nested classes */
 void Swig_nested_process_classes(Node *n);
 void Swig_nested_name_unnamed_c_structs(Node *n);
 
+/* Interface feature */
+void Swig_interface_feature_enable();
+void Swig_interface_propagate_methods(Node *n);
+
+/* Miscellaneous */
 template <class T> class save_value {
   T _value;
   T& _value_ptr;

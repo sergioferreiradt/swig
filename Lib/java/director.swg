@@ -100,6 +100,22 @@ namespace Swig {
     bool weak_global_;
   };
 
+  /* Local JNI reference deleter */
+  class LocalRefGuard {
+    JNIEnv *jenv_;
+    jobject jobj_;
+
+    // non-copyable
+    LocalRefGuard(const LocalRefGuard &);
+    LocalRefGuard &operator=(const LocalRefGuard &);
+  public:
+    LocalRefGuard(JNIEnv *jenv, jobject jobj): jenv_(jenv), jobj_(jobj) {}
+    ~LocalRefGuard() {
+      if (jobj_)
+        jenv_->DeleteLocalRef(jobj_);
+    }
+  };
+
   /* director base class */
   class Director {
     /* pointer to Java virtual machine */
@@ -152,6 +168,7 @@ namespace Swig {
       JNIEnvWrapper jnienv(this) ;
       JNIEnv *jenv = jnienv.getJNIEnv() ;
       jobject jobj = swig_self_.get(jenv);
+      LocalRefGuard ref_deleter(jenv, jobj);
 #if defined(DEBUG_DIRECTOR_OWNED)
       std::cout << "Swig::Director::disconnect_director_self(" << jobj << ")" << std::endl;
 #endif
@@ -164,7 +181,6 @@ namespace Swig {
           jenv->CallVoidMethod(jobj, disconn_meth);
         }
       }
-      jenv->DeleteLocalRef(jobj);
     }
 
   public:
@@ -193,6 +209,20 @@ namespace Swig {
     }
   };
 
+  // Zero initialized bool array
+  template<size_t N> class BoolArray {
+    bool array_[N];
+  public:
+    BoolArray() {
+      memset(array_, 0, sizeof(array_));
+    }
+    bool& operator[](size_t n) {
+      return array_[n];
+    }
+    bool operator[](size_t n) const {
+      return array_[n];
+    }
+  };
 
   // Utility classes and functions for exception handling.
 
@@ -339,7 +369,7 @@ namespace Swig {
     static char *copystr(const char *srcmsg) {
       char *target = 0;
       if (srcmsg) {
-	int msglen = strlen(srcmsg) + 1;
+	size_t msglen = strlen(srcmsg) + 1;
 	target = new char[msglen];
 	strncpy(target, srcmsg, msglen);
       }
@@ -351,7 +381,7 @@ namespace Swig {
   };
 
   // Helper method to determine if a Java throwable matches a particular Java class type
-  bool ExceptionMatches(JNIEnv *jenv, jthrowable throwable, const char *classname) {
+  SWIGINTERN bool ExceptionMatches(JNIEnv *jenv, jthrowable throwable, const char *classname) {
     bool matches = false;
 
     if (throwable && jenv && classname) {
@@ -379,6 +409,5 @@ namespace Swig {
     }
     return matches;
   }
-
 }
 

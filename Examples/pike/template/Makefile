@@ -1,21 +1,24 @@
 TOP        = ../..
-SWIG       = $(TOP)/../preinst-swig
-CXXSRCS    = 
+SWIGEXE    = $(TOP)/../swig
+SWIG_LIB_DIR = $(TOP)/../$(TOP_BUILDDIR_TO_TOP_SRCDIR)Lib
+CXXSRCS    =
 TARGET     = example
 INTERFACE  = example.i
 LIBS       = -lm
-SWIGOPT    = 
+SWIGOPT    =
 
 check: build
-	$(MAKE) -f $(TOP)/Makefile pike_run
+	$(MAKE) -f $(TOP)/Makefile SRCDIR='$(SRCDIR)' pike_run
 
 build:
-	$(MAKE) -f $(TOP)/Makefile CXXSRCS='$(CXXSRCS)' SWIG='$(SWIG)' \
+	$(MAKE) -f $(TOP)/Makefile SRCDIR='$(SRCDIR)' CXXSRCS='$(CXXSRCS)' \
+	SWIG_LIB_DIR='$(SWIG_LIB_DIR)' SWIGEXE='$(SWIGEXE)' \
 	SWIGOPT='$(SWIGOPT)' TARGET='$(TARGET)' INTERFACE='$(INTERFACE)' pike_cpp
 
 static:
-	$(MAKE) -f $(TOP)/Makefile CXXSRCS='$(CXXSRCS)' SWIG='$(SWIG)' \
+	$(MAKE) -f $(TOP)/Makefile SRCDIR='$(SRCDIR)' CXXSRCS='$(CXXSRCS)' \
+	SWIG_LIB_DIR='$(SWIG_LIB_DIR)' SWIGEXE='$(SWIGEXE)' \
 	SWIGOPT='$(SWIGOPT)' TARGET='mypike' INTERFACE='$(INTERFACE)' pike_cpp_static
 
 clean:
-	$(MAKE) -f $(TOP)/Makefile pike_clean
+	$(MAKE) -f $(TOP)/Makefile SRCDIR='$(SRCDIR)' pike_clean

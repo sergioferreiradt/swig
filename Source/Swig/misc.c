@@ -127,7 +127,7 @@ String *Swig_strip_c_comments(const String *s) {
   }
 
   if (comment_begin && comment_end) {
-    int size = comment_begin - Char(s);
+    int size = (int)(comment_begin - Char(s));
     String *stripmore = 0;
     stripped = NewStringWithSize(s, size);
     Printv(stripped, comment_end + 1, NIL);
@@ -309,6 +309,7 @@ int Swig_storage_isstatic(Node *n) {
  * Swig_string_escape()
  *
  * Takes a string object and produces a string with escape codes added to it.
+ * Octal escaping is used.
  * ----------------------------------------------------------------------------- */
 
 String *Swig_string_escape(String *s) {
@@ -342,6 +343,43 @@ String *Swig_string_escape(String *s) {
   return ns;
 }
 
+/* -----------------------------------------------------------------------------
+ * Swig_string_hexescape()
+ *
+ * Takes a string object and produces a string with escape codes added to it.
+ * Hex escaping is used.
+ * ----------------------------------------------------------------------------- */
+
+String *Swig_string_hexescape(String *s) {
+  String *ns;
+  int c;
+  ns = NewStringEmpty();
+
+  while ((c = Getc(s)) != EOF) {
+    if (c == '\n') {
+      Printf(ns, "\\n");
+    } else if (c == '\r') {
+      Printf(ns, "\\r");
+    } else if (c == '\t') {
+      Printf(ns, "\\t");
+    } else if (c == '\\') {
+      Printf(ns, "\\\\");
+    } else if (c == '\'') {
+      Printf(ns, "\\'");
+    } else if (c == '\"') {
+      Printf(ns, "\\\"");
+    } else if (c == ' ') {
+      Putc(c, ns);
+    } else if (!isgraph(c)) {
+      if (c < 0)
+	c += UCHAR_MAX + 1;
+      Printf(ns, "\\x%X", c);
+    } else {
+      Putc(c, ns);
+    }
+  }
+  return ns;
+}
 
 /* -----------------------------------------------------------------------------
  * Swig_string_upper()
@@ -808,7 +846,7 @@ void Swig_scopename_split(const String *s, String **rprefix, String **rlast) {
       *rlast = Copy(s);
       return;
     } else {
-      *rprefix = NewStringWithSize(cc, co - cc - 2);
+      *rprefix = NewStringWithSize(cc, (int)(co - cc - 2));
       *rlast = NewString(co);
       return;
     }
@@ -835,7 +873,7 @@ void Swig_scopename_split(const String *s, String **rprefix, String **rlast) {
   }
 
   if (cc != tmp) {
-    *rprefix = NewStringWithSize(tmp, cc - tmp);
+    *rprefix = NewStringWithSize(tmp, (int)(cc - tmp));
     *rlast = NewString(cc + 2);
     return;
   } else {
@@ -858,7 +896,7 @@ String *Swig_scopename_prefix(const String *s) {
     if (co == cc) {
       return 0;
     } else {
-      String *prefix = NewStringWithSize(cc, co - cc - 2);
+      String *prefix = NewStringWithSize(cc, (int)(co - cc - 2));
       return prefix;
     }
   }
@@ -884,7 +922,7 @@ String *Swig_scopename_prefix(const String *s) {
   }
 
   if (cc != tmp) {
-    return NewStringWithSize(tmp, cc - tmp);
+    return NewStringWithSize(tmp, (int)(cc - tmp));
   } else {
     return 0;
   }
@@ -977,7 +1015,7 @@ String *Swig_scopename_first(const String *s) {
     }
   }
   if (*c && (c != tmp)) {
-    return NewStringWithSize(tmp, c - tmp);
+    return NewStringWithSize(tmp, (int)(c - tmp));
   } else {
     return 0;
   }
@@ -1148,6 +1186,39 @@ String *Swig_string_strip(String *s) {
 }
 
 /* -----------------------------------------------------------------------------
+ * Swig_string_rstrip()
+ *
+ * Strip given suffix from identifiers 
+ *
+ *  Printf(stderr,"%(rstrip:[Cls])s","HelloCls") -> Hello
+ * ----------------------------------------------------------------------------- */
+
+String *Swig_string_rstrip(String *s) {
+  String *ns;
+  int len = Len(s);
+  if (!len) {
+    ns = NewString(s);
+  } else {
+    const char *cs = Char(s);
+    const char *ce = Strchr(cs, ']');
+    if (*cs != '[' || !ce) {
+      ns = NewString(s);
+    } else {
+      String *fmt = NewStringf("%%.%ds", ce-cs-1);
+      String *suffix = NewStringf(fmt, cs+1);
+      int suffix_len = Len(suffix);
+      if (0 == Strncmp(cs+len-suffix_len, suffix, suffix_len)) {
+	int copy_len = len-suffix_len-(ce+1-cs);
+        ns = NewStringWithSize(ce+1, copy_len);
+      } else {
+        ns = NewString(ce+1);
+      }
+    }
+  }
+  return ns;
+}
+
+/* -----------------------------------------------------------------------------
  * Swig_offset_string()
  *
  * Insert number tabs before each new line in s
@@ -1219,8 +1290,8 @@ static int split_regex_pattern_subst(String *s, String **pattern, String **subst
   if (!p) goto err_out;
   sube = p;
 
-  *pattern = NewStringWithSize(pats, pate - pats);
-  *subst   = NewStringWithSize(subs, sube - subs);
+  *pattern = NewStringWithSize(pats, (int)(pate - pats));
+  *subst   = NewStringWithSize(subs, (int)(sube - subs));
   *input   = p + 1;
   return 1;
 
@@ -1270,10 +1341,10 @@ String *replace_captures(int num_captures, const char *input, String *subst, int
     /* Copy part without substitutions */
     const char *q = strchr(p, '\\');
     if (!q) {
-      copy_with_maybe_case_conversion(result, p, strlen(p), &convertCase, convertNextOnly);
+      copy_with_maybe_case_conversion(result, p, (int)strlen(p), &convertCase, convertNextOnly);
       break;
     }
-    copy_with_maybe_case_conversion(result, p, q - p, &convertCase, convertNextOnly);
+    copy_with_maybe_case_conversion(result, p, (int)(q - p), &convertCase, convertNextOnly);
     p = q + 1;
 
     /* Handle substitution */
@@ -1328,7 +1399,7 @@ String *replace_captures(int num_captures, const char *input, String *subst, int
  *
  * Executes a regular expression substitution. For example:
  *
- *   Printf(stderr,"gsl%(regex:/GSL_.*_/\\1/)s","GSL_Hello_") -> gslHello
+ *   Printf(stderr,"gsl%(regex:/GSL_(.*)_/\\1/)s", "GSL_Hello_") -> gslHello
  * ----------------------------------------------------------------------------- */
 String *Swig_string_regex(String *s) {
   const int pcre_options = 0;
@@ -1350,7 +1421,7 @@ String *Swig_string_regex(String *s) {
           pcre_error, Char(pattern), pcre_errorpos);
       exit(1);
     }
-    rc = pcre_exec(compiled_pat, NULL, input, strlen(input), 0, 0, captures, 30);
+    rc = pcre_exec(compiled_pat, NULL, input, (int)strlen(input), 0, 0, captures, 30);
     if (rc >= 0) {
       res = replace_captures(rc, input, subst, captures, pattern, s);
     } else if (rc != PCRE_ERROR_NOMATCH) {
@@ -1392,6 +1463,7 @@ String *Swig_pcre_version(void) {
 void Swig_init() {
   /* Set some useful string encoding methods */
   DohEncoding("escape", Swig_string_escape);
+  DohEncoding("hexescape", Swig_string_hexescape);
   DohEncoding("upper", Swig_string_upper);
   DohEncoding("lower", Swig_string_lower);
   DohEncoding("title", Swig_string_title);
@@ -1403,6 +1475,7 @@ void Swig_init() {
   DohEncoding("command", Swig_string_command);
   DohEncoding("schemify", Swig_string_schemify);
   DohEncoding("strip", Swig_string_strip);
+  DohEncoding("rstrip", Swig_string_rstrip);
   DohEncoding("regex", Swig_string_regex);
 
   /* aliases for the case encoders */

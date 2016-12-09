@@ -57,7 +57,9 @@ extern "C" {
 /* Some status variables used during parsing */
 static int InClass = 0; /* Parsing C++ or not */
 static String *ClassName = 0;	/* This is the real name of the current class */
+static String *EnumClassName = 0; /* Enum class name */
 static String *ClassPrefix = 0;	/* Class prefix */
+static String *EnumClassPrefix = 0; /* Prefix for strongly typed enums (including ClassPrefix) */
 static String *NSpace = 0;	/* Namespace for the nspace feature */
 static String *ClassType = 0;	/* Fully qualified type name to use */
 static String *DirectorClassName = 0;	/* Director name of the current class */
@@ -868,7 +870,7 @@ int Language::cDeclaration(Node *n) {
     } else {
       // Found an unignored templated method that has an empty template instantiation (%template())
       // Ignore it unless it has been %rename'd
-      if (Strncmp(symname, "__dummy_", 8) == 0) {
+      if (Strncmp(symname, "__dummy_", 8) == 0 && Cmp(storage, "typedef") != 0) {
 	SetFlag(n, "feature:ignore");
 	Swig_warning(WARN_LANG_TEMPLATE_METHOD_IGNORE, input_file, line_number,
 	    "%%template() contains no name. Template method ignored: %s\n", Swig_name_decl(n));
@@ -938,7 +940,7 @@ int Language::cDeclaration(Node *n) {
   }
 
   if (!validIdentifier(symname)) {
-    Swig_warning(WARN_LANG_IDENTIFIER, input_file, line_number, "Can't wrap '%s' unless renamed to a valid identifier.\n", symname);
+    Swig_warning(WARN_LANG_IDENTIFIER, input_file, line_number, "Can't wrap '%s' unless renamed to a valid identifier.\n", SwigType_namestr(symname));
     return SWIG_NOWRAP;
   }
 
@@ -1647,13 +1649,30 @@ int Language::externDeclaration(Node *n) {
  * ---------------------------------------------------------------------- */
 
 int Language::enumDeclaration(Node *n) {
+  if (CurrentClass && (cplus_mode != PUBLIC))
+    return SWIG_NOWRAP;
+
   String *oldNSpace = NSpace;
   NSpace = Getattr(n, "sym:nspace");
 
+  String *oldEnumClassPrefix = EnumClassPrefix;
+  if (GetFlag(n, "scopedenum")) {
+    assert(Getattr(n, "sym:name"));
+    assert(Getattr(n, "name"));
+    EnumClassPrefix = ClassPrefix ? NewStringf("%s_", ClassPrefix) : NewString("");
+    Printv(EnumClassPrefix, Getattr(n, "sym:name"), NIL);
+    EnumClassName = Copy(Getattr(n, "name"));
+  }
   if (!ImportMode) {
     emit_children(n);
   }
 
+  if (GetFlag(n, "scopedenum")) {
+    Delete(EnumClassName);
+    EnumClassName = 0;
+    Delete(EnumClassPrefix);
+    EnumClassPrefix = oldEnumClassPrefix;
+  }
   NSpace = oldNSpace;
 
   return SWIG_OK;
@@ -1667,7 +1686,7 @@ int Language::enumvalueDeclaration(Node *n) {
   if (CurrentClass && (cplus_mode != PUBLIC))
     return SWIG_NOWRAP;
 
-  Swig_require("enumvalueDeclaration", n, "*name", "?value", NIL);
+  Swig_require("enumvalueDeclaration", n, "*name", "*sym:name", "?value", NIL);
   String *value = Getattr(n, "value");
   String *name = Getattr(n, "name");
   String *tmpValue;
@@ -1677,6 +1696,13 @@ int Language::enumvalueDeclaration(Node *n) {
   else
     tmpValue = NewString(name);
   Setattr(n, "value", tmpValue);
+
+  Node *parent = parentNode(n);
+  if (GetFlag(parent, "scopedenum")) {
+    String *symname = Swig_name_member(0, Getattr(parent, "sym:name"), Getattr(n, "sym:name"));
+    Setattr(n, "sym:name", symname);
+    Delete(symname);
+  }
 
   if (!CurrentClass || !cparse_cplusplus) {
     Setattr(n, "name", tmpValue);	/* for wrapping of enums in a namespace when emit_action is used */
@@ -1716,16 +1742,19 @@ int Language::memberconstantHandler(Node *n) {
     Setattr(n, "feature:except", Getattr(n, "feature:exceptvar"));
   }
 
+  String *enumvalue_symname = Getattr(n, "enumvalueDeclaration:sym:name"); // Only set if a strongly typed enum
   String *name = Getattr(n, "name");
   String *symname = Getattr(n, "sym:name");
   String *value = Getattr(n, "value");
 
-  String *mrename = Swig_name_member(0, ClassPrefix, symname);
+  String *mrename = Swig_name_member(0, EnumClassPrefix, enumvalue_symname ? enumvalue_symname : symname);
   Setattr(n, "sym:name", mrename);
 
   String *new_name = 0;
   if (Extend)
     new_name = Copy(value);
+  else if (EnumClassName)
+    new_name = NewStringf("%s::%s", isNonVirtualProtectedAccess(n) ? DirectorClassName : EnumClassName, name);
   else
     new_name = NewStringf("%s::%s", isNonVirtualProtectedAccess(n) ? DirectorClassName : ClassName, name);
   Setattr(n, "name", new_name);
@@ -2043,7 +2072,7 @@ int Language::classDirectorConstructors(Node *n) {
      needed, since there is a public constructor already defined.  
 
      (scottm) This code is needed here to make the director_abstract +
-     test generate compileable code (Example2 in director_abastract.i).
+     test generate compilable code (Example2 in director_abastract.i).
 
      (mmatus) This is very strange, since swig compiled with gcc3.2.3
      doesn't need it here....
@@ -2369,6 +2398,7 @@ int Language::classDeclaration(Node *n) {
   int oldInClass = InClass;
   String *oldClassType = ClassType;
   String *oldClassPrefix = ClassPrefix;
+  String *oldEnumClassPrefix = EnumClassPrefix;
   String *oldClassName = ClassName;
   String *oldDirectorClassName = DirectorClassName;
   String *oldNSpace = NSpace;
@@ -2410,6 +2440,7 @@ int Language::classDeclaration(Node *n) {
     Push(ClassPrefix, "_");
     Push(ClassPrefix, Getattr(outerClass, "sym:name"));
   }
+  EnumClassPrefix = Copy(ClassPrefix);
   if (strip) {
     ClassType = Copy(name);
   } else {
@@ -2477,6 +2508,8 @@ int Language::classDeclaration(Node *n) {
   CurrentClass = oldCurrentClass;
   Delete(ClassType);
   ClassType = oldClassType;
+  Delete(EnumClassPrefix);
+  EnumClassPrefix = oldEnumClassPrefix;
   Delete(ClassPrefix);
   ClassPrefix = oldClassPrefix;
   Delete(ClassName);
@@ -2664,7 +2697,8 @@ int Language::constructorDeclaration(Node *n) {
       String *scope = Swig_scopename_check(ClassName) ? Swig_scopename_prefix(ClassName) : 0;
       String *actual_name = scope ? NewStringf("%s::%s", scope, name) : NewString(name);
       Delete(scope);
-      if (!Equal(actual_name, expected_name) && !SwigType_istemplate(expected_name)) {
+      if (!Equal(actual_name, expected_name) && !SwigType_istemplate(expected_name) && !SwigType_istemplate(actual_name)) {
+	// Checking templates is skipped but they ought to be checked... they are just somewhat more tricky to check correctly
 	bool illegal_name = true;
 	if (Extend) {
 	  // Check for typedef names used as a constructor name in %extend. This is deprecated except for anonymous
@@ -2962,6 +2996,12 @@ int Language::variableWrapper(Node *n) {
   Delattr(n,"varset");
   Delattr(n,"varget");
 
+  String *newsymname = 0;
+  if (!CurrentClass && EnumClassPrefix) {
+    newsymname = Swig_name_member(0, EnumClassPrefix, symname);
+    symname = newsymname;
+  }
+
   /* If no way to set variables.  We simply create functions */
   int assignable = is_assignable(n);
   int flags = use_naturalvar_mode(n);
@@ -3019,6 +3059,7 @@ int Language::variableWrapper(Node *n) {
   functionWrapper(n);
   Delattr(n, "varget");
   Swig_restore(n);
+  Delete(newsymname);
   return SWIG_OK;
 }
 
@@ -3077,6 +3118,31 @@ int Language::addSymbol(const String *s, const Node *n, const_String_or_char_ptr
     }
   }
   Setattr(symbols, s, n);
+  return 1;
+}
+
+/* -----------------------------------------------------------------------------
+ * Language::addInterfaceSymbol()
+ *
+ * Adds a symbol entry into the target language symbol tables - for the interface
+ * feature only.
+ * Returns 1 if the symbol is added successfully.
+ * The scope is as per addSymbol.
+ * ----------------------------------------------------------------------------- */
+
+int Language::addInterfaceSymbol(const String *interface_name, Node *n, const_String_or_char_ptr scope) {
+  if (interface_name) {
+    Node *existing_symbol = symbolLookup(interface_name, scope);
+    if (existing_symbol) {
+      String *proxy_class_name = Getattr(n, "sym:name");
+      Swig_error(input_file, line_number, "The interface feature name '%s' for proxy class '%s' is already defined in the generated target language module in scope '%s'.\n",
+	  interface_name, proxy_class_name, scope);
+      Swig_error(Getfile(existing_symbol), Getline(existing_symbol), "Previous declaration of '%s'\n", interface_name);
+      return 0;
+    }
+    if (!addSymbol(interface_name, n, scope))
+      return 0;
+  }
   return 1;
 }
 
@@ -3176,7 +3242,7 @@ void Language::dumpSymbols() {
  * Language::symbolLookup()
  * ----------------------------------------------------------------------------- */
 
-Node *Language::symbolLookup(String *s, const_String_or_char_ptr scope) {
+Node *Language::symbolLookup(const String *s, const_String_or_char_ptr scope) {
   Hash *symbols = Getattr(symtabs, scope ? scope : "");
   if (!symbols) {
     return NULL;
@@ -3500,6 +3566,45 @@ int Language::is_smart_pointer() const {
 }
 
 /* -----------------------------------------------------------------------------
+ * Language::makeParameterName()
+ *
+ * Inputs: 
+ *   n - Node
+ *   p - parameter node
+ *   arg_num - parameter argument number
+ *   setter  - set this flag when wrapping variables
+ * Return:
+ *   arg - a unique parameter name
+ * ----------------------------------------------------------------------------- */
+String *Language::makeParameterName(Node *n, Parm *p, int arg_num, bool setter) const {
+
+  String *arg = 0;
+  String *pn = Getattr(p, "name");
+
+  // Use C parameter name unless it is a duplicate or an empty parameter name
+  int count = 0;
+  ParmList *plist = Getattr(n, "parms");
+  while (plist) {
+    if ((Cmp(pn, Getattr(plist, "name")) == 0))
+      count++;
+    plist = nextSibling(plist);
+  }
+  String *wrn = pn ? Swig_name_warning(p, 0, pn, 0) : 0;
+  arg = (!pn || (count > 1) || wrn) ? NewStringf("arg%d", arg_num) : Copy(pn);
+
+  if (setter && Cmp(arg, "self") != 0) {
+    // Some languages (C#) insist on calling the input variable "value" while
+    // others (D, Java) could, in principle, use something different but this
+    // would require more work, and so we just use "value" for them too.
+    // For setters the parameter name sometimes includes C++ scope resolution which needs removing.
+    Delete(arg);
+    arg = NewString("value");
+  }
+
+  return arg;
+}
+
+/* -----------------------------------------------------------------------------
  * Language::()
  * ----------------------------------------------------------------------------- */
 
@@ -3517,9 +3622,22 @@ bool Language::extraDirectorProtectedCPPMethodsRequired() const {
   return true;
 }
 
+/* -----------------------------------------------------------------------------
+ * Language::nestedClassesSupport()
+ * ----------------------------------------------------------------------------- */
+
 Language::NestedClassSupport Language::nestedClassesSupport() const {
   return NCS_Unknown;
 }
+
+/* -----------------------------------------------------------------------------
+ * Language::kwargsSupport()
+ * ----------------------------------------------------------------------------- */
+
+bool Language::kwargsSupport() const {
+  return false;
+}
+
 /* -----------------------------------------------------------------------------
  * Language::is_wrapping_class()
  * ----------------------------------------------------------------------------- */
@@ -3561,6 +3679,14 @@ String *Language::getClassPrefix() const {
 }
 
 /* -----------------------------------------------------------------------------
+ * Language::getEnumClassPrefix()
+ * ----------------------------------------------------------------------------- */
+
+String *Language::getEnumClassPrefix() const {
+  return EnumClassPrefix;
+}
+
+/* -----------------------------------------------------------------------------
  * Language::getClassType()
  * ----------------------------------------------------------------------------- */
 
@@ -3578,14 +3704,26 @@ int Language::abstractClassTest(Node *n) {
     return 0;
   if (Getattr(n, "allocate:nonew"))
     return 1;
+
+  // A class cannot be instantiated if one of its bases has a private destructor
+  // Note that if the above does not hold the class can be instantiated if its own destructor is private
+  List *bases = Getattr(n, "bases");
+  if (bases) {
+    for (int i = 0; i < Len(bases); i++) {
+      Node *b = Getitem(bases, i);
+      if (GetFlag(b, "allocate:private_destructor"))
+	return 1;
+    }
+  }
+
   /* now check for the rest */
   List *abstracts = Getattr(n, "abstracts");
   if (!abstracts)
     return 0;
   int labs = Len(abstracts);
 #ifdef SWIG_DEBUG
-  List *bases = Getattr(n, "allbases");
-  Printf(stderr, "testing %s %d %d\n", Getattr(n, "name"), labs, Len(bases));
+  List *allbases = Getattr(n, "allbases");
+  Printf(stderr, "testing %s %d %d\n", Getattr(n, "name"), labs, Len(allbases));
 #endif
   if (!labs)
     return 0;			/*strange, but need to be fixed */
@@ -3687,6 +3825,7 @@ String *Language::defaultExternalRuntimeFilename() {
 
 /* -----------------------------------------------------------------------------
  * Language::replaceSpecialVariables()
+ *
  * Language modules should implement this if special variables are to be handled
  * correctly in the $typemap(...) special variable macro.
  * method - typemap method name
@@ -3706,3 +3845,4 @@ Language *Language::instance() {
 Hash *Language::getClassHash() const {
   return classhash;
 }
+

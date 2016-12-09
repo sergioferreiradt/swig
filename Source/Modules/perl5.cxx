@@ -13,11 +13,9 @@
 
 #include "swigmod.h"
 #include "cparse.h"
-static int treduce = SWIG_cparse_template_reduce(0);
-
 #include <ctype.h>
 
-static const char *usage = (char *) "\
+static const char *usage = "\
 Perl5 Options (available with -perl5)\n\
      -compat         - Compatibility mode\n\
      -const          - Wrap constants as constants and not variables (implies -proxy)\n\
@@ -327,8 +325,8 @@ public:
 
     Swig_banner(f_begin);
 
-    Printf(f_runtime, "\n");
-    Printf(f_runtime, "#define SWIGPERL\n");
+    Printf(f_runtime, "\n\n#ifndef SWIGPERL\n#define SWIGPERL\n#endif\n\n");
+
     if (directorsEnabled()) {
       Printf(f_runtime, "#define SWIG_DIRECTORS\n");
     }
@@ -342,11 +340,18 @@ public:
     Node *options = Getattr(mod, "options");
     module = Copy(Getattr(n,"name"));
 
+    String *underscore_module = Copy(module);
+    Replaceall(underscore_module,":","_");
+
+    if (verbose > 0) {
+      fprintf(stdout, "top: using namespace_module: %s\n", Char(namespace_module));
+    }
+
     if (directorsEnabled()) {
       Swig_banner(f_directors_h);
       Printf(f_directors_h, "\n");
-      Printf(f_directors_h, "#ifndef SWIG_%s_WRAP_H_\n", module);
-      Printf(f_directors_h, "#define SWIG_%s_WRAP_H_\n\n", module);
+      Printf(f_directors_h, "#ifndef SWIG_%s_WRAP_H_\n", underscore_module);
+      Printf(f_directors_h, "#define SWIG_%s_WRAP_H_\n\n", underscore_module);
       if (dirprot_mode()) {
 	Printf(f_directors_h, "#include <map>\n");
 	Printf(f_directors_h, "#include <string>\n\n");
@@ -379,13 +384,6 @@ public:
 	fprintf(stdout, "top: No package found\n");
       }
     }
-    String *underscore_module = Copy(module);
-    Replaceall(underscore_module,":","_");
-
-    if (verbose > 0) {
-      fprintf(stdout, "top: using namespace_module: %s\n", Char(namespace_module));
-    }
-
     /* If we're in blessed mode, change the package name to "packagec" */
 
     if (blessed) {
@@ -470,6 +468,7 @@ public:
 
     if (directorsEnabled()) {
       // Insert director runtime into the f_runtime file (make it occur before %header section)
+      Swig_insert_file("director_common.swg", f_runtime);
       Swig_insert_file("director.swg", f_runtime);
     }
 
@@ -1046,21 +1045,9 @@ public:
 
     String *tt = Getattr(n, "tmap:varout:type");
     if (tt) {
-      String *tm = NewStringf("&SWIGTYPE%s", SwigType_manglestr(t));
-      if (Replaceall(tt, "$1_descriptor", tm)) {
-	SwigType_remember(t);
-      }
-      Delete(tm);
-      SwigType *st = Copy(t);
-      SwigType_add_pointer(st);
-      tm = NewStringf("&SWIGTYPE%s", SwigType_manglestr(st));
-      if (Replaceall(tt, "$&1_descriptor", tm)) {
-	SwigType_remember(st);
-      }
-      Delete(tm);
-      Delete(st);
+      tt = NewStringf("&%s", tt);
     } else {
-      tt = (String *) "0";
+      tt = NewString("0");
     }
     /* Now add symbol to the PERL interpreter */
     if (GetFlag(n, "feature:immutable")) {
@@ -1088,6 +1075,7 @@ public:
     if (export_all)
       Printf(exported, "$%s ", iname);
 
+    Delete(tt);
     DelWrapper(setf);
     DelWrapper(getf);
     Delete(getname);
@@ -1996,8 +1984,8 @@ public:
       Printf(f_directors_h, "      return (iv != swig_inner.end() ? iv->second : false);\n");
       Printf(f_directors_h, "    }\n");
 
-      Printf(f_directors_h, "    void swig_set_inner(const char *swig_protected_method_name, bool val) const {\n");
-      Printf(f_directors_h, "      swig_inner[swig_protected_method_name] = val;\n");
+      Printf(f_directors_h, "    void swig_set_inner(const char *swig_protected_method_name, bool swig_val) const {\n");
+      Printf(f_directors_h, "      swig_inner[swig_protected_method_name] = swig_val;\n");
       Printf(f_directors_h, "    }\n");
       Printf(f_directors_h, "private:\n");
       Printf(f_directors_h, "    mutable std::map<std::string, bool> swig_inner;\n");
@@ -2142,6 +2130,8 @@ public:
 	String *cres = SwigType_lstr(returntype, "c_result");
 	Printf(w->code, "%s;\n", cres);
 	Delete(cres);
+      }
+      if (!ignored_method) {
 	String *pres = NewStringf("SV *%s", Swig_cresult_name());
 	Wrapper_add_local(w, Swig_cresult_name(), pres);
 	Delete(pres);
@@ -2178,12 +2168,12 @@ public:
 	SwigType_add_pointer(ptype);
 	String *mangle = SwigType_manglestr(ptype);
 
-	Wrapper_add_local(w, "self", "SV *self");
-	Printf(w->code, "self = SWIG_NewPointerObj(SWIG_as_voidptr(this), SWIGTYPE%s, SWIG_SHADOW);\n", mangle);
-	Printf(w->code, "sv_bless(self, gv_stashpv(swig_get_class(), 0));\n");
+	Wrapper_add_local(w, "swigself", "SV *swigself");
+	Printf(w->code, "swigself = SWIG_NewPointerObj(SWIG_as_voidptr(this), SWIGTYPE%s, SWIG_SHADOW);\n", mangle);
+	Printf(w->code, "sv_bless(swigself, gv_stashpv(swig_get_class(), 0));\n");
 	Delete(mangle);
 	Delete(ptype);
-	Append(pstack, "XPUSHs(self);\n");
+	Append(pstack, "XPUSHs(swigself);\n");
       }
 
       Parm *p;
@@ -2254,7 +2244,7 @@ public:
 	    if (SwigType_isreference(ptype)) {
 	      Insert(ppname, 0, "&");
 	    }
-	    /* if necessary, cast away const since Python doesn't support it! */
+	    /* if necessary, cast away const since Perl doesn't support it! */
 	    if (SwigType_isconst(nptype)) {
 	      nonconst = NewStringf("nc_tmp_%s", pname);
 	      String *nonconst_i = NewStringf("= const_cast< %s >(%s)", SwigType_lstr(ptype, 0), ppname);

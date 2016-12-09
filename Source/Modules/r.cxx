@@ -14,7 +14,6 @@
 #include "swigmod.h"
 
 static const double DEFAULT_NUMBER = .0000123456712312312323;
-static const int MAX_OVERLOAD_ARGS = 5;
 
 static String* replaceInitialDash(const String *name)
 {
@@ -206,7 +205,7 @@ static void writeListByLine(List *l, File *out, bool quote = 0) {
 }
 
 
-static const char *usage = (char *)"\
+static const char *usage = "\
 R Options (available with -r)\n\
      -copystruct      - Emit R code to copy C structs (on by default)\n\
      -cppcast         - Enable C++ casting operators (default) \n\
@@ -282,6 +281,7 @@ public:
   
   void dispatchFunction(Node *n);
   int functionWrapper(Node *n);
+  int constantWrapper(Node *n);
   int variableWrapper(Node *n);
 
   int classDeclaration(Node *n);
@@ -793,9 +793,7 @@ int R::top(Node *n) {
 
   Swig_banner(f_begin);
 
-  Printf(f_runtime, "\n");
-  Printf(f_runtime, "#define SWIGR\n");
-  Printf(f_runtime, "\n");
+  Printf(f_runtime, "\n\n#ifndef SWIGR\n#define SWIGR\n#endif\n\n");
 
   
   Swig_banner_target_lang(s_init, "#");
@@ -1066,7 +1064,7 @@ int R::OutputMemberReferenceMethod(String *className, int isSet,
   
   if (!isSet && varaccessor > 0) {
     Printf(f->code, "%svaccessors = c(", tab8);
-    int vcount = 0;
+    int first = 1;
     for(j = 0; j < numMems; j+=3) {
       String *item = Getitem(el, j);
       String *dup = Getitem(el, j + 1);
@@ -1074,8 +1072,8 @@ int R::OutputMemberReferenceMethod(String *className, int isSet,
       ptr = &ptr[Len(dup) - 3];
       
       if (!strcmp(ptr, "get")) {
-	vcount++;
-	Printf(f->code, "'%s'%s", item, vcount < varaccessor ? ", " : "");
+	Printf(f->code, "%s'%s'", first ? "" : ", ", item);
+	first = 0;
       }
     }
     Printf(f->code, ");\n");
@@ -1181,6 +1179,9 @@ int R::OutputArrayMethod(String *className, List *el, File *out) {
  tdname is the typedef of the enumeration, i.e. giving its name.
 *************************************************************/
 int R::enumDeclaration(Node *n) {
+  if (getCurrentClass() && (cplus_mode != PUBLIC))
+    return SWIG_NOWRAP;
+
   String *name = Getattr(n, "name");
   String *tdname = Getattr(n, "tdname");
   
@@ -1382,12 +1383,12 @@ List * R::Swig_overload_rank(Node *n,
 	    }
 	    if ((!t1) && (!nodes[i].error)) {
 	      Swig_warning(WARN_TYPEMAP_TYPECHECK, Getfile(nodes[i].n), Getline(nodes[i].n),
-			   "Overloaded method %s not supported (no type checking rule for '%s').\n",
+			   "Overloaded method %s not supported (incomplete type checking rule - no precedence level in typecheck typemap for '%s').\n",
 			   Swig_name_decl(nodes[i].n), SwigType_str(Getattr(p1, "type"), 0));
 	      nodes[i].error = 1;
 	    } else if ((!t2) && (!nodes[j].error)) {
 	      Swig_warning(WARN_TYPEMAP_TYPECHECK, Getfile(nodes[j].n), Getline(nodes[j].n),
-			   "xx Overloaded method %s not supported (no type checking rule for '%s').\n",
+			   "Overloaded method %s not supported (incomplete type checking rule - no precedence level in typecheck typemap for '%s').\n",
 			   Swig_name_decl(nodes[j].n), SwigType_str(Getattr(p2, "type"), 0));
 	      nodes[j].error = 1;
 	    }
@@ -1481,11 +1482,12 @@ List * R::Swig_overload_rank(Node *n,
 		      Swig_warning(WARN_LANG_OVERLOAD_CONST, Getfile(nodes[i].n), Getline(nodes[i].n),
 				   "using non-const method %s instead.\n", Swig_name_decl(nodes[i].n));
 		    } else {
-		      if (!Getattr(nodes[j].n, "overload:ignore"))
+		      if (!Getattr(nodes[j].n, "overload:ignore")) {
 			Swig_warning(WARN_LANG_OVERLOAD_IGNORED, Getfile(nodes[j].n), Getline(nodes[j].n),
 				     "Overloaded method %s ignored,\n", Swig_name_decl(nodes[j].n));
 			Swig_warning(WARN_LANG_OVERLOAD_IGNORED, Getfile(nodes[i].n), Getline(nodes[i].n),
 				     "using %s instead.\n", Swig_name_decl(nodes[i].n));
+		      }
 		    }
 		  }
 		  nodes[j].error = 1;
@@ -1498,11 +1500,12 @@ List * R::Swig_overload_rank(Node *n,
 		      Swig_warning(WARN_LANG_OVERLOAD_CONST, Getfile(nodes[i].n), Getline(nodes[i].n),
 				   "using non-const method %s instead.\n", Swig_name_decl(nodes[i].n));
 		    } else {
-		      if (!Getattr(nodes[j].n, "overload:ignore"))
+		      if (!Getattr(nodes[j].n, "overload:ignore")) {
 			Swig_warning(WARN_LANG_OVERLOAD_IGNORED, Getfile(nodes[j].n), Getline(nodes[j].n),
 				     "Overloaded method %s ignored,\n", Swig_name_decl(nodes[j].n));
 			Swig_warning(WARN_LANG_OVERLOAD_IGNORED, Getfile(nodes[i].n), Getline(nodes[i].n),
 				     "using %s instead.\n", Swig_name_decl(nodes[i].n));
+		      }
 		    }
 		  }
 		  nodes[j].error = 1;
@@ -1520,11 +1523,12 @@ List * R::Swig_overload_rank(Node *n,
 		Swig_warning(WARN_LANG_OVERLOAD_SHADOW, Getfile(nodes[i].n), Getline(nodes[i].n),
 			     "as it is shadowed by %s.\n", Swig_name_decl(nodes[i].n));
 	      } else {
-		if (!Getattr(nodes[j].n, "overload:ignore"))
+		if (!Getattr(nodes[j].n, "overload:ignore")) {
 		  Swig_warning(WARN_LANG_OVERLOAD_IGNORED, Getfile(nodes[j].n), Getline(nodes[j].n),
 			       "Overloaded method %s ignored,\n", Swig_name_decl(nodes[j].n));
 		  Swig_warning(WARN_LANG_OVERLOAD_IGNORED, Getfile(nodes[i].n), Getline(nodes[i].n),
 			       "using %s instead.\n", Swig_name_decl(nodes[i].n));
+		}
 	      }
 	      nodes[j].error = 1;
 	    }
@@ -2093,6 +2097,13 @@ int R::functionWrapper(Node *n) {
     }
   }
 
+  /* See if there is any return cleanup code */
+  if ((tm = Swig_typemap_lookup("ret", n, Swig_cresult_name(), 0))) {
+    Replaceall(tm, "$source", Swig_cresult_name());
+    Printf(f->code, "%s\n", tm);
+    Delete(tm);
+  }
+
   Printv(f->code, UnProtectWrapupCode, NIL);
 
   /*If the user gave us something to convert the result in  */
@@ -2161,7 +2172,7 @@ int R::functionWrapper(Node *n) {
   /* If we are dealing with a method in an C++ class, then 
      add the name of the R function and its definition. 
      XXX need to figure out how to store the Wrapper if possible in the hash/list.
-     Would like to be able to do this so that we can potentialy insert
+     Would like to be able to do this so that we can potentially insert
   */
   if(processing_member_access_function || processing_class_member_function) {
     addAccessor(member_name, sfun, iname);
@@ -2179,6 +2190,16 @@ int R::functionWrapper(Node *n) {
 
   Delete(sargs);
   Delete(sfname);
+  return SWIG_OK;
+}
+
+/* ----------------------------------------------------------------------
+ * R::constantWrapper()
+ * ---------------------------------------------------------------------- */
+
+int R::constantWrapper(Node *n) {
+  (void) n;
+  // TODO
   return SWIG_OK;
 }
 
