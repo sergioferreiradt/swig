@@ -139,6 +139,9 @@ int Dispatcher::emit_one(Node *n) {
     ret = namespaceDeclaration(n);
   } else if (strcmp(tag, "template") == 0) {
     ret = templateDeclaration(n);
+  }
+  else if (strcmp(tag, "doxycomm") == 0) {
+    ret = doxygenComment(n);
   } else if (strcmp(tag, "lambda") == 0) {
     ret = lambdaDeclaration(n);
   }
@@ -307,7 +310,9 @@ int Dispatcher::usingDeclaration(Node *n) {
 int Dispatcher::namespaceDeclaration(Node *n) {
   return defaultHandler(n);
 }
-
+int Dispatcher::doxygenComment(Node *n){
+  return defaultHandler(n);
+}
 
 /* Allocators */
 Language::Language():
@@ -315,8 +320,6 @@ none_comparison(NewString("$arg != 0")),
 director_ctor_code(NewString("")),
 director_prot_ctor_code(0),
 symtabs(NewHash()),
-classtypes(NewHash()),
-enumtypes(NewHash()),
 overloading(0),
 multiinput(0),
 cplus_runtime(0),
@@ -337,12 +340,12 @@ directors(0) {
   director_language = 0;
   assert(!this_);
   this_ = this;
+
+  doxygenTranslator = NULL;
 }
 
 Language::~Language() {
   Delete(symtabs);
-  Delete(classtypes);
-  Delete(enumtypes);
   Delete(director_ctor_code);
   Delete(none_comparison);
   this_ = 0;
@@ -2970,6 +2973,18 @@ int Language::usingDeclaration(Node *n) {
 /* Stubs. Language modules need to implement these */
 
 /* ----------------------------------------------------------------------
+ * Language::doxygenComment()
+ * ---------------------------------------------------------------------- */
+int Language::doxygenComment(Node *n){
+	
+  String *comment = Getattr(n, "comment");
+  Printf(stdout, "doxygenComment   : %s\n", comment);
+
+  return SWIG_OK;
+	
+}
+
+/* ----------------------------------------------------------------------
  * Language::constantWrapper()
  * ---------------------------------------------------------------------- */
 
@@ -3256,11 +3271,13 @@ Node *Language::symbolLookup(const String *s, const_String_or_char_ptr scope) {
  * Tries to locate a class from a type definition
  * ----------------------------------------------------------------------------- */
 
-Node *Language::classLookup(const SwigType *s) const {
+Node *Language::classLookup(const SwigType *s) {
+  static Hash *classtypes = 0;
+
   Node *n = 0;
 
   /* Look in hash of cached values */
-  n = Getattr(classtypes, s);
+  n = classtypes ? Getattr(classtypes, s) : 0;
   if (!n) {
     Symtab *stab = 0;
     SwigType *ty1 = SwigType_typedef_resolve_all(s);
@@ -3315,6 +3332,8 @@ Node *Language::classLookup(const SwigType *s) const {
       }
       if (acceptable_prefix) {
 	SwigType *cs = Copy(s);
+	if (!classtypes)
+	  classtypes = NewHash();
 	Setattr(classtypes, cs, n);
 	Delete(cs);
       } else {
@@ -3341,10 +3360,12 @@ Node *Language::classLookup(const SwigType *s) const {
  * ----------------------------------------------------------------------------- */
 
 Node *Language::enumLookup(SwigType *s) {
+  static Hash *enumtypes = 0;
+
   Node *n = 0;
 
   /* Look in hash of cached values */
-  n = Getattr(enumtypes, s);
+  n = enumtypes ? Getattr(enumtypes, s) : 0;
   if (!n) {
     Symtab *stab = 0;
     SwigType *lt = SwigType_ltype(s);
@@ -3385,6 +3406,8 @@ Node *Language::enumLookup(SwigType *s) {
     if (n) {
       /* Found a match.  Look at the prefix.  We only allow simple types. */
       if (Len(prefix) == 0) {	/* Simple type */
+	if (!enumtypes)
+	  enumtypes = NewHash();
 	Setattr(enumtypes, Copy(s), n);
       } else {
 	n = 0;

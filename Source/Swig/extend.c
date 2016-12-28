@@ -17,6 +17,20 @@
 static Hash *extendhash = 0;     /* Hash table of added methods */
 
 /* -----------------------------------------------------------------------------
+ * new_node()
+ *
+ * Create an empty parse node, setting file and line number information
+ * ----------------------------------------------------------------------------- */
+
+static Node *new_node(const_String_or_char_ptr tag) {
+  Node *n = NewHash();
+  set_nodeType(n,tag);
+  Setfile(n,cparse_file);
+  Setline(n,cparse_line);
+  return n;
+}
+
+/* -----------------------------------------------------------------------------
  * Swig_extend_hash()
  *
  * Access the extend hash

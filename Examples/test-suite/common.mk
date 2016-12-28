@@ -573,6 +573,28 @@ CPP11_TEST_BROKEN = \
 #	cpp11_variadic_templates \    # Broken for some languages (such as Java)
 #	cpp11_reference_wrapper \     # No typemaps
 
+# Doxygen support test cases: can only be used with languages supporting
+# Doxygen comment translation, currently only Python and Java.
+python_HAS_DOXYGEN := 1
+java_HAS_DOXYGEN := 1
+
+$(eval HAS_DOXYGEN := $($(LANGUAGE)_HAS_DOXYGEN))
+
+ifdef HAS_DOXYGEN
+DOXYGEN_TEST_CASES += \
+	doxygen_parsing \
+	doxygen_ignore \
+	doxygen_basic_translate \
+	doxygen_basic_notranslate \
+	doxygen_translate \
+	doxygen_translate_all_tags \
+	doxygen_translate_links \
+	doxygen_misc_constructs \
+
+$(DOXYGEN_TEST_CASES:=.cpptest): SWIGOPT += -doxygen
+
+CPP_TEST_CASES += $(DOXYGEN_TEST_CASES)
+endif
 
 #
 # Put all the heavy STD/STL cases here, where they can be skipped if needed
@@ -720,6 +742,10 @@ check-c: $(C_TEST_CASES:=.ctest)
 check-cpp: $(CPP_TEST_CASES:=.cpptest)
 
 check-cpp11: $(CPP11_TEST_CASES:=.cpptest)
+
+ifdef HAS_DOXYGEN
+check-doxygen: $(DOXYGEN_TEST_CASES:=.cpptest)
+endif
 
 check-failing-test = \
 	$(MAKE) -s $1.$2 >/dev/null 2>/dev/null && echo "Failing test $1 passed."

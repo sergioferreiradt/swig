@@ -64,6 +64,13 @@ static int      cparse_externc = 0;
 int		ignore_nested_classes = 0;
 int		kwargs_supported = 0;
 /* -----------------------------------------------------------------------------
+ *                            Doxygen Comment Globals
+ * ----------------------------------------------------------------------------- */
+static String *currentDeclComment = NULL; /* Comment of C/C++ declaration. */
+static Node *previousNode = NULL; /* Pointer to the previous node (for post comments) */
+static Node *currentNode = NULL; /* Pointer to the current node (for post comments) */
+
+/* -----------------------------------------------------------------------------
  *                            Assist Functions
  * ----------------------------------------------------------------------------- */
 
@@ -72,6 +79,17 @@ int		kwargs_supported = 0;
 /* Called by the parser (yyparse) when an error is found.*/
 static void yyerror (const char *e) {
   (void)e;
+}
+
+static Node *new_node(const_String_or_char_ptr tag) {
+  Node *n = NewHash();
+  set_nodeType(n,tag);
+  Setfile(n,cparse_file);
+  Setline(n,cparse_line);
+  /* Remember the previous node in case it will need a post-comment */
+  previousNode = currentNode;
+  currentNode = n;
+  return n;
 }
 
 /* Copies a node.  Does not copy tree links or symbol table data (except for
@@ -156,6 +174,36 @@ static Node *copy_node(Node *n) {
     Delete(ci);
   }
   return nn;
+}
+
+static void set_comment(Node *n, String *comment) {
+  String *name;
+  Parm *p;
+  if (!n || !comment)
+    return;
+
+  if (Getattr(n, "doxygen"))
+    Append(Getattr(n, "doxygen"), comment);
+  else {
+    Setattr(n, "doxygen", comment);
+    /* This is the first comment, populate it with @params, if any */
+    p = Getattr(n, "parms");
+    while (p) {
+      if (Getattr(p, "doxygen"))
+	Printv(comment, "\n@param ", Getattr(p, "name"), Getattr(p, "doxygen"), NIL);
+      p=nextSibling(p);
+    }
+  }
+  
+  /* Append same comment to every generated overload */
+  name = Getattr(n, "name");
+  if (!name)
+    return;
+  n = nextSibling(n);
+  while (n && Getattr(n, "name") && Strcmp(Getattr(n, "name"), name) == 0) {
+    Setattr(n, "doxygen", comment);
+    n = nextSibling(n);
+  }
 }
 
 /* -----------------------------------------------------------------------------
@@ -1417,6 +1465,9 @@ static void mark_nodes_as_extend(Node *n) {
 %token <str> CONVERSIONOPERATOR
 %token PARSETYPE PARSEPARM PARSEPARMS
 
+%token <str> DOXYGENSTRING
+%token <str> DOXYGENPOSTSTRING
+
 %left  CAST
 %left  QUESTIONMARK
 %left  LOR
@@ -1443,11 +1494,11 @@ static void mark_nodes_as_extend(Node *n) {
 
 /* C declarations */
 %type <node>     c_declaration c_decl c_decl_tail c_enum_key c_enum_inherit c_enum_decl c_enum_forward_decl c_constructor_decl;
-%type <node>     enumlist edecl;
+%type <node>     enumlist enumlist_tail enumlist_item edecl_with_dox edecl;
 
 /* C++ declarations */
 %type <node>     cpp_declaration cpp_class_decl cpp_forward_class_decl cpp_template_decl cpp_alternate_rettype;
-%type <node>     cpp_members cpp_member;
+%type <node>     cpp_members cpp_member cpp_member_no_dox;
 %type <node>     cpp_constructor_decl cpp_destructor_decl cpp_protection_decl cpp_conversion_operator cpp_static_assert;
 %type <node>     cpp_swig_directive cpp_temp_possible cpp_opt_declarators ;
 %type <node>     cpp_using_decl cpp_namespace_decl cpp_catch_decl cpp_lambda_decl;
@@ -1459,7 +1510,7 @@ static void mark_nodes_as_extend(Node *n) {
 %type <id>       storage_class extern_string;
 %type <pl>       parms  ptail rawparms varargs_parms ;
 %type <pl>       templateparameters templateparameterstail;
-%type <p>        parm valparm rawvalparms valparms valptail ;
+%type <p>        parm_no_dox parm valparm rawvalparms valparms valptail ;
 %type <p>        typemap_parm tm_list tm_tail ;
 %type <p>        templateparameter ;
 %type <id>       templcpptype cpptype access_specifier;
@@ -1491,7 +1542,6 @@ static void mark_nodes_as_extend(Node *n) {
 %type <node>     featattr;
 %type <node>     lambda_introducer lambda_body;
 %type <pl>       lambda_tail;
-%type <node>     optional_constant_directive;
 %type <str>      virt_specifier_seq;
 
 %%
@@ -1538,7 +1588,22 @@ program        :  interface {
 
 interface      : interface declaration {  
                    /* add declaration to end of linked list (the declaration isn't always a single declaration, sometimes it is a linked list itself) */
+                   if (currentDeclComment != NULL) {
+                       set_comment($2, currentDeclComment);
+                       currentDeclComment = NULL;
+                   }                                      
                    appendChild($1,$2);
+                   $$ = $1;
+               }
+               | interface DOXYGENSTRING {
+                   currentDeclComment = $2; 
+                   $$ = $1;
+               }
+               | interface DOXYGENPOSTSTRING {
+                   Node *node = lastChild($1);
+                   if (node) {
+                       set_comment(node, $2);
+                   }
                    $$ = $1;
                }
                | empty {
@@ -4370,7 +4435,7 @@ cpp_members  : cpp_member cpp_members {
 
 /* A class member.  May be data or a function. Static or virtual as well */
 
-cpp_member   : c_declaration { $$ = $1; }
+cpp_member_no_dox : c_declaration { $$ = $1; }
              | cpp_constructor_decl { 
                  $$ = $1; 
 		 if (extendmode && current_class) {
@@ -4405,6 +4470,18 @@ cpp_member   : c_declaration { $$ = $1; }
              | fragment_directive {$$ = $1; }
              | types_directive {$$ = $1; }
              | SEMI { $$ = 0; }
+
+cpp_member   : cpp_member_no_dox {
+		$$ = $1;
+	     }
+             | DOXYGENSTRING cpp_member_no_dox {
+	         $$ = $2;
+		 set_comment($2, $1);
+	     }
+             | cpp_member_no_dox DOXYGENPOSTSTRING {
+	         $$ = $1;
+		 set_comment($1, $2);
+	     }
              ;
 
 /* Possibly a constructor */
@@ -4771,20 +4848,27 @@ rawparms          : parm ptail {
                   set_nextSibling($1,$2);
                   $$ = $1;
 		}
-               | empty { $$ = 0; }
+               | empty { $$ = 0; previousNode = currentNode; currentNode=0; }
                ;
 
 ptail          : COMMA parm ptail {
                  set_nextSibling($2,$3);
 		 $$ = $2;
                 }
+	       | COMMA DOXYGENPOSTSTRING parm ptail {
+		 set_comment(previousNode, $2);
+                 set_nextSibling($3,$4);
+		 $$ = $3;
+               }
                | empty { $$ = 0; }
                ;
 
 
-parm           : rawtype parameter_declarator {
+parm_no_dox	: rawtype parameter_declarator {
                    SwigType_push($1,$2.type);
 		   $$ = NewParmWithoutFileLineInfo($1,$2.id);
+		   previousNode = currentNode;
+		   currentNode = $$;
 		   Setfile($$,cparse_file);
 		   Setline($$,cparse_line);
 		   if ($2.defarg) {
@@ -4794,6 +4878,8 @@ parm           : rawtype parameter_declarator {
 
                 | TEMPLATE LESSTHAN cpptype GREATERTHAN cpptype idcolon def_args {
                   $$ = NewParmWithoutFileLineInfo(NewStringf("template<class> %s %s", $5,$6), 0);
+		  previousNode = currentNode;
+		  currentNode = $$;
 		  Setfile($$,cparse_file);
 		  Setline($$,cparse_line);
                   if ($7.val) {
@@ -4803,8 +4889,23 @@ parm           : rawtype parameter_declarator {
                 | PERIOD PERIOD PERIOD {
 		  SwigType *t = NewString("v(...)");
 		  $$ = NewParmWithoutFileLineInfo(t, 0);
+		  previousNode = currentNode;
+		  currentNode = $$;
 		  Setfile($$,cparse_file);
 		  Setline($$,cparse_line);
+		}
+		;
+
+parm		: parm_no_dox {
+		  $$ = $1;
+		}
+		| DOXYGENSTRING parm_no_dox {
+		  $$ = $2;
+		  set_comment($2, $1);
+		}
+		| parm_no_dox DOXYGENPOSTSTRING {
+		  $$ = $1;
+		  set_comment($1, $2);
 		}
 		;
 
@@ -5881,28 +5982,70 @@ ename          :  identifier { $$ = $1; }
 	       |  empty { $$ = (char *) 0;}
 	       ;
 
-optional_constant_directive : constant_directive { $$ = $1; }
-		           | empty { $$ = 0; }
-		           ;
+optional_ignored_define
+		: constant_directive
+		| empty
+		;
+
+optional_ignored_define_after_comma
+		: empty
+		| COMMA
+		| COMMA constant_directive
+		;
 
 /* Enum lists - any #define macros (constant directives) within the enum list are ignored. Trailing commas accepted. */
-enumlist       :  enumlist COMMA optional_constant_directive edecl optional_constant_directive {
-		 Node *leftSibling = Getattr($1,"_last");
-		 set_nextSibling(leftSibling,$4);
-		 Setattr($1,"_last",$4);
-		 $$ = $1;
-	       }
-	       | enumlist COMMA optional_constant_directive {
-		 $$ = $1;
-	       }
-	       | optional_constant_directive edecl optional_constant_directive {
-		 Setattr($2,"_last",$2);
-		 $$ = $2;
-	       }
-	       | optional_constant_directive {
-		 $$ = 0;
-	       }
-	       ;
+enumlist	: enumlist_item optional_ignored_define_after_comma {
+		  Setattr($1,"_last",$1);
+		  $$ = $1;
+		}
+		| enumlist_item enumlist_tail optional_ignored_define_after_comma {
+		  set_nextSibling($1, $2);
+		  Setattr($1,"_last",Getattr($2,"_last"));
+		  Setattr($2,"_last",NULL);
+		  $$ = $1;
+		}
+		| optional_ignored_define {
+		  $$ = 0;
+		}
+		;
+
+enumlist_tail	: COMMA enumlist_item {
+		  Setattr($2,"_last",$2);
+		  $$ = $2;
+		}
+		| enumlist_tail COMMA enumlist_item {
+		  set_nextSibling(Getattr($1,"_last"), $3);
+		  Setattr($1,"_last",$3);
+		  $$ = $1;
+		}
+		;
+
+enumlist_item	: optional_ignored_define edecl_with_dox optional_ignored_define {
+		  $$ = $2;
+		}
+		;
+
+edecl_with_dox	: edecl {
+		  $$ = $1;
+		}
+		| DOXYGENSTRING edecl {
+		  $$ = $2;
+		  set_comment($2, $1);
+		}
+		| edecl DOXYGENPOSTSTRING {
+		  $$ = $1;
+		  set_comment($1, $2);
+		}
+		| DOXYGENPOSTSTRING edecl {
+		  $$ = $2;
+		  set_comment(previousNode, $1);
+		}
+		| DOXYGENPOSTSTRING edecl DOXYGENPOSTSTRING {
+		  $$ = $2;
+		  set_comment(previousNode, $1);
+		  set_comment($2, $3);
+		}
+		;
 
 edecl          :  identifier {
 		   SwigType *type = NewSwigType(T_INT);

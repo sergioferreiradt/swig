@@ -78,6 +78,9 @@ public:
   virtual int typemapcopyDirective(Node *n);
   virtual int typesDirective(Node *n);
 
+  /* Doxygen Comment */
+  virtual int doxygenComment(Node *n);
+  
   /* C/C++ parsing */
 
   virtual int cDeclaration(Node *n);
@@ -158,6 +161,9 @@ public:
   virtual int namespaceDeclaration(Node *n);
   virtual int usingDeclaration(Node *n);
 
+  /* C/C++ parsing */
+  virtual int doxygenComment(Node *n);
+  
   /* Function handlers */
 
   virtual int functionHandler(Node *n);
@@ -214,8 +220,8 @@ public:
   virtual Hash* symbolAddScope(const_String_or_char_ptr scope);
   virtual Hash* symbolScopeLookup(const_String_or_char_ptr scope);
   virtual Hash* symbolScopePseudoSymbolLookup(const_String_or_char_ptr scope);
-  virtual Node *classLookup(const SwigType *s) const; /* Class lookup      */
-  virtual Node *enumLookup(SwigType *s);	/* Enum lookup       */
+  static Node *classLookup(const SwigType *s); /* Class lookup      */
+  static Node *enumLookup(SwigType *s);	/* Enum lookup       */
   virtual int abstractClassTest(Node *n);	/* Is class really abstract? */
   virtual int is_assignable(Node *n);	/* Is variable assignable? */
   virtual String *runtimeCode();	/* returns the language specific runtime code */
@@ -342,10 +348,11 @@ protected:
   /* Director language module */
   int director_language;
 
+  /* Used to translate Doxygen comments to target documentation format */
+  class DoxygenTranslator *doxygenTranslator;
+
 private:
   Hash *symtabs; /* symbol tables */
-  Hash *classtypes;
-  Hash *enumtypes;
   int overloading;
   int multiinput;
   int cplus_runtime;
