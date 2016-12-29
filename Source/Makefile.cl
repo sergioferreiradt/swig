@@ -11,6 +11,8 @@ else
     swig_CFLAGS := -DNDEBUG -O2 -GL
 endif
 
+swig_CFLAGS += /EHsc
+
 swig_INCLUDES := -IInclude/msvc -IInclude -ICParse -IPreprocessor -IDoh -IModules -ISwig
 swig_LIBS := pcre3.lib
 
@@ -30,6 +32,7 @@ swig_SOURCES =	CParse/cscanner.c		\
 		DOH/memory.c			\
 		DOH/string.c			\
 		DOH/void.c			\
+		$(wildcard DoxygenTranslator/src/*.cpp) \
 		Modules/allegrocl.cxx		\
 		Modules/allocate.cxx		\
 		Modules/browser.cxx		\
