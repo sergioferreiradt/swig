@@ -24,7 +24,7 @@
 class DoxygenParser {
 private:
 
-  typedef enum {
+  enum DoxyCommandEnum {
     NONE = -1,
     SIMPLECOMMAND,
     COMMANDWORD,
@@ -39,12 +39,13 @@ private:
     COMMANDUNIQUE,
     COMMAND_HTML,
     COMMAND_HTML_ENTITY,
+    COMMAND_ALIAS,
     COMMAND_IGNORE,
     END_LINE,
     PARAGRAPH_END,
     PLAINSTRING,
     COMMAND
-  } DoxyCommandEnum;
+  };
 
 
   /** This class contains parts of Doxygen comment as a token. */
@@ -130,7 +131,7 @@ private:
    * Determines how a command should be handled (what group it belongs to
    * for parsing rules
    */
-  int commandBelongs(const std::string &theCommand);
+  DoxyCommandEnum commandBelongs(const std::string &theCommand);
 
   /*
    *prints the parse tree
@@ -240,7 +241,7 @@ private:
    * Plain commands, such as newline etc, they contain no other data
    *  \n \\ \@ \& \$ \# \< \> \%
    */
-  int addSimpleCommand(const std::string &theCommand,
+  void addSimpleCommand(const std::string &theCommand,
 		                 DoxygenEntityList &doxyList);
   /*
    * CommandWord
@@ -250,7 +251,7 @@ private:
    * "relates", "namespace", "relatesalso","anchor", "dontinclude", "include",
    * "includelineno"
    */
-  int addCommandWord(const std::string &theCommand,
+  void addCommandWord(const std::string &theCommand,
 		               const TokenList &tokList,
 		               DoxygenEntityList &doxyList);
   /*
@@ -260,7 +261,7 @@ private:
    * "addindex", "fn", "name", "line", "var", "skipline", "typedef", "skip",
    * "until", "property"
    */
-  int addCommandLine(const std::string &theCommand,
+  void addCommandLine(const std::string &theCommand,
 		               const TokenList &tokList,
 		               DoxygenEntityList &doxyList);
   /*
@@ -271,7 +272,7 @@ private:
    * "details", "invariant", "deprecated", "date", "note", "warning",
    * "version", "todo", "bug", "attention", "brief", "arg", "author"
    */
-  int addCommandParagraph(const std::string &theCommand,
+  void addCommandParagraph(const std::string &theCommand,
 		  	  	  	  	     const TokenList &tokList,
 		                     DoxygenEntityList &doxyList);
   /*
@@ -283,7 +284,7 @@ private:
    * "link"
    * Returns 1 if success, 0 if the endcommand is never encountered.
    */
-  int addCommandEndCommand(const std::string &theCommand,
+  void addCommandEndCommand(const std::string &theCommand,
 		                      const TokenList & tokList,
 		                      DoxygenEntityList &doxyList);
   /*
@@ -292,7 +293,7 @@ private:
    * Commands such as param
    * "param", "tparam", "throw", "throws", "retval", "exception"
    */
-  int addCommandWordParagraph(const std::string &theCommand,
+  void addCommandWordParagraph(const std::string &theCommand,
 		  	  	  	  	  	      const TokenList & tokList,
 		  	  	  	  	  	      DoxygenEntityList &doxyList);
   /*
@@ -301,7 +302,7 @@ private:
    * Commands such as param
    * "page", "subsection", "subsubsection", "section", "paragraph", "defgroup"
    */
-  int addCommandWordLine(const std::string &theCommand,
+  void addCommandWordLine(const std::string &theCommand,
                             const TokenList &tokList,
                             DoxygenEntityList &doxyList);
   /*
@@ -310,7 +311,7 @@ private:
    * Commands such as class
    * "category", "class", "protocol", "interface", "struct", "union"
    */
-  int addCommandWordOWordOWord(const std::string &theCommand,
+  void addCommandWordOWordOWord(const std::string &theCommand,
                                    const TokenList &tokList,
                                    DoxygenEntityList &doxyList);
   /*
@@ -319,7 +320,7 @@ private:
    * Commands such as dir
    * "dir", "file", "cond"
    */
-  int addCommandOWord(const std::string &theCommand,
+  void addCommandOWord(const std::string &theCommand,
                       const TokenList &tokList,
                       DoxygenEntityList &doxyList);
 
@@ -327,30 +328,37 @@ private:
    * Commands that should not be encountered (such as PHP only)
    * goes til the end of line then returns
    */
-  int addCommandErrorThrow(const std::string &theCommand,
+  void addCommandErrorThrow(const std::string &theCommand,
                            const TokenList &tokList,
                            DoxygenEntityList &doxyList);
 
-  int addCommandHtml(const std::string &theCommand,
+  void addCommandHtml(const std::string &theCommand,
                      const TokenList &tokList,
                      DoxygenEntityList &doxyList);
 
-  int addCommandHtmlEntity(const std::string &theCommand,
+  void addCommandHtmlEntity(const std::string &theCommand,
                            const TokenList &tokList,
                            DoxygenEntityList &doxyList);
 
   /*
    *Adds the unique commands- different process for each unique command
    */
-  int addCommandUnique(const std::string &theCommand,
+  void addCommandUnique(const std::string &theCommand,
                        const TokenList &tokList,
                        DoxygenEntityList &doxyList);
+
+  /*
+   * Replace the given command with its predefined alias expansion.
+   */
+  void aliasCommand(const std::string& theCommand,
+		    const TokenList &tokList,
+		    DoxygenEntityList &doxyList);
 
   /*
    * Simply ignore the given command, possibly with the word following it or
    * until the matching end command.
    */
-  int ignoreCommand(const std::string& theCommand,
+  void ignoreCommand(const std::string& theCommand,
                     const TokenList &tokList,
                     DoxygenEntityList &doxyList);
 
@@ -358,7 +366,7 @@ private:
    * The actual "meat" of the doxygen parser. Calls the correct addCommand...()
    * function.
    */
-  int addCommand(const std::string &commandString,
+  void addCommand(const std::string &commandString,
                    const TokenList &tokList,
                    DoxygenEntityList &doxyList);
 
