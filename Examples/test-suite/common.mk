@@ -278,6 +278,7 @@ CPP_TEST_CASES += \
 	memberin_extend \
 	member_funcptr_galore \
 	member_pointer \
+	member_pointer_const \
 	member_template \
 	minherit \
 	minherit2 \
@@ -534,7 +535,7 @@ CPP_TEST_CASES += \
 	wrapmacro
 
 # C++11 test cases.
-CPP11_TEST_CASES = \
+CPP11_TEST_CASES += \
 	cpp11_alignment \
 	cpp11_alternate_function_syntax \
 	cpp11_constexpr \
@@ -572,7 +573,6 @@ CPP11_TEST_CASES = \
 
 # Broken C++11 test cases.
 CPP11_TEST_BROKEN = \
-#	cpp11_hash_tables \           # not fully implemented yet
 #	cpp11_variadic_templates \    # Broken for some languages (such as Java)
 #	cpp11_reference_wrapper \     # No typemaps
 
@@ -791,7 +791,7 @@ swig_and_compile_external =  \
 	$(MAKE) -f $(top_builddir)/$(EXAMPLES)/Makefile SRCDIR='$(SRCDIR)' \
 	SWIG_LIB_DIR='$(SWIG_LIB_DIR)' SWIGEXE='$(SWIGEXE)' \
 	TARGET='$*_wrap_hdr.h' \
-	$(LANGUAGE)$(VARIANT)_externalhdr; \
+	$(LANGUAGE)$(VARIANT)_externalhdr && \
 	$(MAKE) -f $(top_builddir)/$(EXAMPLES)/Makefile SRCDIR='$(SRCDIR)' CXXSRCS='$(CXXSRCS) $*_external.cxx' \
 	SWIG_LIB_DIR='$(SWIG_LIB_DIR)' SWIGEXE='$(SWIGEXE)' \
 	INCLUDES='$(INCLUDES)' SWIGOPT='$(SWIGOPT)' NOLINK=true \
@@ -805,7 +805,7 @@ setup = \
 	  echo "$(ACTION)ing $(LANGUAGE) testcase $* (with run test)" ; \
 	else								  \
 	  echo "$(ACTION)ing $(LANGUAGE) testcase $*" ;		  \
-	fi;
+	fi
 
 
 

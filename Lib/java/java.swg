@@ -1355,6 +1355,8 @@ SWIG_PROXY_CONSTRUCTOR(true, true, SWIGTYPE)
 
 /* const pointers */
 %apply SWIGTYPE * { SWIGTYPE *const }
+%apply SWIGTYPE (CLASS::*) { SWIGTYPE (CLASS::*const) }
+%apply SWIGTYPE & { SWIGTYPE (CLASS::*const&) }
 
 /* String & length */
 %typemap(jni)     (char *STRING, size_t LENGTH) "jbyteArray"
