@@ -4,19 +4,49 @@ See the RELEASENOTES file for a summary of changes in each release.
 Issue # numbers mentioned below can be found on Github. For more details, add
 the issue number to the end of the URL: https://github.com/swig/swig/issues/
 
-Version 3.0.13 (in progress)
-============================
+Version 4.0.0 (in progress)
+===========================
+
+2017-05-20: jschueller
+            [Python] #991 Fix E731 PEP8 warning: do not assign a lambda expression
+
+2017-05-16: nihal95
+            [PHP] Add %pragma version directive to allow the version of the
+            extension to be set.  Patch #970, fixes #360.
+
+2017-05-13: yag00
+            Patch #975 - Add support for noexcept on director methods.
+
+2017-04-27: redbrain
+            Issue #974, Patch #976 - Fix preprocessor handling of macros with commas in a comment.
+
+2017-04-25: jleveque
+            [Lua] #959 - Fix Visual Studio C4244 conversion warnings in Lua wrappers.
+
+2017-04-21: tamuratak
+            [Ruby] #964 - Add shared_ptr director typemaps.
+
+2017-04-20: wsfulton
+            [Ruby] #586, #935 Add assert for invalid NULL type parameter when calling SWIG_Ruby_NewPointerObj.
+
+2017-04-20: tamuratak
+            [Ruby] #930, #937 - Fix containers of std::shared_ptr.
+            Upcasting, const types (eg vector<shared_ptr<const T>>) and NULL/nullptr support added.
+
+2017-04-12: smarchetto
+            [Scilab] New parameter targetversion to specify the Scilab target version (5, 6, ..) for code generation
+            With Scilab 6 target specified, identifier names truncation is disabled (no longer necessary)
 
 2017-02-29: tamuratak
             [Ruby] #917 - Add Enumerable module to all container class wrappers. It was missing
             for std::list, std::multiset, std::unordered_multiset and std::unordered_map.
 
-2017-03-24: tamuratak 
+2017-03-24: tamuratak
             [Ruby] Fix #939 - Wrapping std::vector<bool> fix due to incorrect null checks
             on VALUE obj.
 
 2017-03-17: vadz
-            [C#] Add support for std::complex<T>
+            [C#] #947 Add support for std::complex<T>
 
 2017-03-17: wsfulton
             [Go] Fix handling of typedef'd function pointers and typedef'd member function pointers

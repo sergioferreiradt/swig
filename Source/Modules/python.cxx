@@ -5124,7 +5124,7 @@ public:
 	Printv(f_shadow, tab4, "__swig_destroy__ = ", module, ".", Swig_name_destroy(NSPACE_TODO, symname), "\n", NIL);
 	if (!have_pythonprepend(n) && !have_pythonappend(n)) {
 	  if (proxydel) {
-	    Printv(f_shadow, tab4, "__del__ = lambda self: None\n", NIL);
+	    Printv(f_shadow, tab4, "def __del__(self):\n", tab8, "return None\n", NIL);
 	  }
 	  return SWIG_OK;
 	}
@@ -5459,8 +5459,11 @@ int PYTHON::classDirectorMethod(Node *n, Node *parent, String *super) {
   Delete(target);
 
   // Get any exception classes in the throws typemap
+  if (Getattr(n, "noexcept")) {
+    Append(w->def, " noexcept");
+    Append(declaration, " noexcept");
+  }
   ParmList *throw_parm_list = 0;
-
   if ((throw_parm_list = Getattr(n, "throws")) || Getattr(n, "throw")) {
     Parm *p;
     int gencomma = 0;
@@ -5494,8 +5497,16 @@ int PYTHON::classDirectorMethod(Node *n, Node *parent, String *super) {
    * if the return value is a reference or const reference, a specialized typemap must
    * handle it, including declaration of c_result ($result).
    */
-  if (!is_void) {
-    if (!(ignored_method && !pure_virtual)) {
+  if (!is_void && (!ignored_method || pure_virtual)) {
+    if (!SwigType_isclass(returntype)) {
+      if (!(SwigType_ispointer(returntype) || SwigType_isreference(returntype))) {
+	String *construct_result = NewStringf("= SwigValueInit< %s >()", SwigType_lstr(returntype, 0));
+	Wrapper_add_localv(w, "c_result", SwigType_lstr(returntype, "c_result"), construct_result, NIL);
+	Delete(construct_result);
+      } else {
+	Wrapper_add_localv(w, "c_result", SwigType_lstr(returntype, "c_result"), "= 0", NIL);
+      }
+    } else {
       String *cres = SwigType_lstr(returntype, "c_result");
       Printf(w->code, "%s;\n", cres);
       Delete(cres);
