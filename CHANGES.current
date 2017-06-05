@@ -7,6 +7,54 @@ the issue number to the end of the URL: https://github.com/swig/swig/issues/
 Version 4.0.0 (in progress)
 ===========================
 
+2017-06-03: wsfulton
+            Fix %import on a file containing a file scope %fragment forced inclusion to not
+            generate the fragment contents as %import should not result in code being generated.
+            The behaviour is now the same as importing code insertion blocks.
+            Wrapping FileC.i in the following example will result in no generated code, whereas
+            previously "#include <limits.h>" was generated:
+
+              // FileA.i
+              %fragment("<limits.h>", "header") %{
+                #include <limits.h>
+              %}
+
+              %{
+                #include <stdio.h>
+              %}
+              %fragment("<limits.h>");
+
+              // FileC.i
+              %import "FileA.i"
+
+            *** POTENTIAL INCOMPATIBILITY ***
+
+2017-05-26: Volker Diels-Grabsch, vadz
+            [Java] #842 Extend from java.util.AbstractList<> and implement java.util.RandomAccess for
+            std::vector wrappers. This notably allows to iterate over wrapped vectors in a natural way.
+2017-05-30: davidcl
+            [Scilab] #994 Undefined symbol error when loading in Scilab 6
+
+2017-05-25: asibross
+            [Java] #370 #417 Missing smart pointer handling in Java director extra methods
+            swigReleaseOwnership() and swigTakeOwnership().
+
+2017-05-23: wsfulton
+            [Java] #230 #759 Fix Java shared_ptr and directors for derived classes java compilation
+            error.
+
+            For shared_ptr proxy proxy classes, add a protected method swigSetCMemOwn for modifying
+            the swigCMemOwn and swigCMemOwnDerived member variables which are used by various other
+            methods for controlling memory ownership.
+
+2017-05-21: Sghirate
+            [Java, C#, D] #449 Remove unnecessary use of dynamic_cast in directors to enable
+            non-RTTI compilation.
+
+2017-05-21: wsfulton
+            [Python] #993 Fix handling of default -ve unsigned values, such as:
+              void f(unsigned = -1U);
+
 2017-05-20: jschueller
             [Python] #991 Fix E731 PEP8 warning: do not assign a lambda expression
 
@@ -36,10 +84,6 @@ Version 4.0.0 (in progress)
 2017-04-12: smarchetto
             [Scilab] New parameter targetversion to specify the Scilab target version (5, 6, ..) for code generation
             With Scilab 6 target specified, identifier names truncation is disabled (no longer necessary)
-
-2017-02-29: tamuratak
-            [Ruby] #917 - Add Enumerable module to all container class wrappers. It was missing
-            for std::list, std::multiset, std::unordered_multiset and std::unordered_map.
 
 2017-03-24: tamuratak
             [Ruby] Fix #939 - Wrapping std::vector<bool> fix due to incorrect null checks
@@ -71,6 +115,10 @@ Version 4.0.0 (in progress)
 
               auto sum1(int x, int y) const -> int { return x + y; }
               auto sum2(int x, int y) noexcept -> int { return x + y; }
+
+2017-02-29: tamuratak
+            [Ruby] #917 - Add Enumerable module to all container class wrappers. It was missing
+            for std::list, std::multiset, std::unordered_multiset and std::unordered_map.
 
 2017-02-27: assambar
             [C++11] Extend parser to support throw specifier in combination
