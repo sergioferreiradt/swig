@@ -1952,7 +1952,7 @@ int Language::unrollVirtualMethods(Node *n, Node *parent, List *vm, int default_
      generation of 'empty' director classes.
 
      But this has to be done outside the previous 'for'
-     an the recursive loop!.
+     and the recursive loop!.
    */
   if (n == parent) {
     int len = Len(vm);
@@ -2081,7 +2081,7 @@ int Language::classDirectorConstructors(Node *n) {
      needed, since there is a public constructor already defined.  
 
      (scottm) This code is needed here to make the director_abstract +
-     test generate compilable code (Example2 in director_abastract.i).
+     test generate compilable code (Example2 in director_abstract.i).
 
      (mmatus) This is very strange, since swig compiled with gcc3.2.3
      doesn't need it here....
@@ -3313,6 +3313,14 @@ Node *Language::classLookup(const SwigType *s) {
 	break;
       if (Strcmp(nodeType(n), "class") == 0)
 	break;
+      Node *sibling = n;
+      while (sibling) {
+       sibling = Getattr(sibling, "csym:nextSibling");
+       if (sibling && Strcmp(nodeType(sibling), "class") == 0)
+         break;
+      }
+      if (sibling)
+       break;
       n = parentNode(n);
       if (!n)
 	break;
@@ -3325,7 +3333,7 @@ Node *Language::classLookup(const SwigType *s) {
     }
     if (n) {
       /* Found a match.  Look at the prefix.  We only allow
-         the cases where where we want a proxy class for the particular type */
+         the cases where we want a proxy class for the particular type */
       bool acceptable_prefix = 
 	(Len(prefix) == 0) ||			      // simple type (pass by value)
 	(Strcmp(prefix, "p.") == 0) ||		      // pointer
