@@ -186,19 +186,19 @@ then
                 if test "$with_next_framework" ; then
 		    LDSHARED="$LDSHARED \$(LDLIBRARY)"
 		fi ;;
-	*-*-linux*) LDSHARED="gcc -shared";;
+	*-*-linux*) LDSHARED="$CC -shared";;
 	*-*-dgux*) LDSHARED="ld -G";;
-	*-*-freebsd3*) LDSHARED="gcc -shared";;
+	*-*-freebsd3*) LDSHARED="$CC -shared";;
 	*-*-freebsd* | *-*-openbsd*) LDSHARED="ld -Bshareable";;
 	*-*-netbsd*)
 		if [[ "`$CC -dM -E - </dev/null | grep __ELF__`" != "" ]]
 		then
-			LDSHARED="cc -shared"
+			LDSHARED="$CC -shared"
 		else
 			LDSHARED="ld -Bshareable"
 		fi;;
-	*-sco-sysv*) LDSHARED="cc -G -KPIC -Ki486 -belf -Wl,-Bexport";;
-	*-*-darwin*) LDSHARED="cc -bundle -undefined suppress -flat_namespace";;
+	*-sco-sysv*) LDSHARED="$CC -G -KPIC -Ki486 -belf -Wl,-Bexport";;
+	*-*-darwin*) LDSHARED="$CC -bundle -undefined suppress -flat_namespace";;
 	*)	LDSHARED="ld";;
 	esac
 fi
@@ -383,9 +383,6 @@ case $host in
    *-*-darwin*) PHP_SO=.so;;
    *) PHP_SO=$SO;;
 esac
-
-AC_SUBST(PHP5_SO)
-PHP5_SO=$PHP_SO
 
 AC_SUBST(MZSCHEME_SO)
 case $host in
@@ -904,7 +901,8 @@ fi
 AC_ARG_WITH(2to3, AS_HELP_STRING([--with-2to3=path], [Set location of Python 2to3 tool]), [PY2TO3BIN="$withval"], [PY2TO3BIN="yes"])
 if test -n "$PYTHON3"; then
   if test "x$PY2TO3BIN" = xyes; then
-    AC_CHECK_PROGS(PY2TO3, 2to3)
+    py3to2=`echo $PYTHON3 | sed -e "s/python/2to3-/"`
+    AC_CHECK_PROGS(PY2TO3, $py3to2 2to3)
   else
     PY2TO3="$PY2TO3BIN"
   fi
@@ -1502,7 +1500,7 @@ else
 
   # check for include files
   AC_MSG_CHECKING(for JavaScriptCore/JavaScript.h)
-  AC_ARG_WITH(jscoreinc, [  --with-jscinc=path      Set location of Javascript include directory], [JSCOREINCDIR="$withval"], [JSCOREINCDIR=])
+  AC_ARG_WITH(jscoreinc, [  --with-jscoreinc=path      Set location of Javascript include directory], [JSCOREINCDIR="$withval"], [JSCOREINCDIR=])
 
   JSCOREVERSION=
 
@@ -1536,7 +1534,7 @@ else
   fi
 
   # check for JavaScriptCore/Webkit libraries
-  AC_ARG_WITH(jscorelib,[  --with-jsclib=path      Set location of the JavaScriptCore/Webkit library directory],[JSCORELIB="-L$withval"], [JSCORELIB=])
+  AC_ARG_WITH(jscorelib,[  --with-jscorelib=path      Set location of the JavaScriptCore/Webkit library directory],[JSCORELIB="-L$withval"], [JSCORELIB=])
 
   if test -z "$JSCORELIB" -a -n "$PKGCONFIG"; then
     AC_MSG_CHECKING(for JavaScriptCore/Webkit library)
@@ -1560,7 +1558,7 @@ else
 
   # check for include files
   AC_MSG_CHECKING(for V8 Javascript v8.h)
-  AC_ARG_WITH(jsv8inc, [  --with-jsv8inc=path     Set location of Javascript v8 include directory], [JSV8INCDIR="$withval"])
+  AC_ARG_WITH(jsv8inc, [  --with-jsv8inc=path     Set location of Javascript v8 include directory], [JSV8INCDIR="$withval"], [JSV8INCDIR=])
 
   # if not include dir is specified we try to find
   if test -z "$JSV8INCDIR"; then
@@ -1714,17 +1712,28 @@ else
   fi
   if test -n "$GUILE_CONFIG" ; then
     if test x"$GUILE" = xyes; then
-      AC_MSG_CHECKING([for guile bindir])
-      guile_bindir="`$GUILE_CONFIG info bindir`"
-      AC_MSG_RESULT([$guile_bindir])
-      GUILE=$guile_bindir/guile
+      AC_MSG_CHECKING([for guile executable])
+      # Try extracting it via guile-config first. If it's defined there it's the most reliable result
+      GUILE="`$GUILE_CONFIG info guile 2>/dev/null`"
+      if test -n "$GUILE";  then
+        AC_MSG_RESULT([$GUILE])
+      else
+        AC_MSG_RESULT([not found via guile-config - constructing path])
+        AC_MSG_CHECKING([for guile bindir])
+        guile_bindir="`$GUILE_CONFIG info bindir`"
+        AC_MSG_RESULT([$guile_bindir])
+        GUILE="$guile_bindir/guile"
+      fi
       if ! test -f "$GUILE" ; then
-	GUILE=
+        GUILE=
         AC_PATH_PROG(GUILE, guile)
+      fi
+      if test -z "$GUILE" ; then
+        AC_MSG_WARN([no suitable guile executable found. Disabling Guile])
       fi
     fi
 
-    if test -f "$GUILE" ; then
+    if test -n "$GUILE" ; then
       AC_MSG_CHECKING([for guile version])
       guile_version=`$GUILE -c '(display (effective-version))'`
       AC_MSG_RESULT([$guile_version])
@@ -1732,20 +1741,33 @@ else
       guile_good_version=`$GUILE -c '(if (>= (string->number (effective-version)) 1.8) (display "yes") (display "no"))'`
       AC_MSG_RESULT([$guile_good_version])
       if test x"$guile_good_version" != xyes ; then
+        AC_MSG_WARN([at least guile version 1.8 is required. Disabling Guile])
         GUILE=
       fi
     fi
 
-    if test -z "$GUILE_CFLAGS" ; then
-      AC_MSG_CHECKING([for guile compile flags])
-      GUILE_CFLAGS="`$GUILE_CONFIG compile`" # Note that this can sometimes be empty
-      AC_MSG_RESULT([$GUILE_CFLAGS])
+    if test -n "$GUILE" ; then
+      # Test if guile-config and guile versions match. They should.
+      gc_version="`$GUILE_CONFIG --version 2>&1 | sed '1 s/.* //;q'`"
+      g_version="`$GUILE --version | sed '1 s/.* //;q'`"
+      if test "$gc_version" != "$g_version"; then
+        AC_MSG_WARN([different versions reported by $GUILE_CONFIG ($gc_version) and $GUILE ($g_version). Disabling Guile])
+        GUILE=
+      fi
     fi
 
-    if test -z "$GUILE_LIBS" ; then
-      AC_MSG_CHECKING([for guile link flags])
-      GUILE_LIBS="`$GUILE_CONFIG link`"
-      AC_MSG_RESULT([$GUILE_LIBS])
+    if test -n "$GUILE" ; then
+      if test -z "$GUILE_CFLAGS" ; then
+        AC_MSG_CHECKING([for guile compile flags])
+        GUILE_CFLAGS="`$GUILE_CONFIG compile`" # Note that this can sometimes be empty
+        AC_MSG_RESULT([$GUILE_CFLAGS])
+      fi
+
+      if test -z "$GUILE_LIBS" ; then
+        AC_MSG_CHECKING([for guile link flags])
+        GUILE_LIBS="`$GUILE_CONFIG link`"
+        AC_MSG_RESULT([$GUILE_LIBS])
+      fi
     fi
   fi
 fi
@@ -1927,55 +1949,6 @@ AC_SUBST(RUBYLINK)
 AC_SUBST(RUBYCCDLFLAGS)
 AC_SUBST(RUBYSO)
 AC_SUBST(RUBYDYNAMICLINKING)
-
-#-------------------------------------------------------------------------
-# Look for PHP5
-#-------------------------------------------------------------------------
-
-PHP5BIN=
-
-AC_ARG_WITH(php5, AS_HELP_STRING([--without-php5], [Disable PHP5])
-AS_HELP_STRING([--with-php5=path], [Set location of PHP5 executable]),[ PHP5BIN="$withval"], [PHP5BIN="$alllang_default"])
-
-# First, check for "--without-php5" or "--with-php5=no".
-if test x"${PHP5BIN}" = xno; then
-    AC_MSG_NOTICE([Disabling PHP5])
-    PHP5=
-else
-    if test "x$PHP5BIN" = xyes; then
-      AC_CHECK_PROGS(PHP5, [php5 php])
-    else
-      PHP5=$PHP5BIN
-    fi
-
-    if test -n "$PHP5"; then
-      AC_MSG_CHECKING(for PHP5 header files)
-      dnl /usr/bin/php5 -> /usr/bin/php-config5
-      case $PHP5 in
-        *5)
-          PHP5CONFIG=`echo "$PHP5"|sed 's/5$/-config5/'` ;;
-        *)
-          PHP5CONFIG=$PHP5-config ;;
-      esac
-      php5_version=`$PHP5CONFIG --version 2>/dev/null`
-      case $php5_version in
-      5*)
-        PHP5INC=`$PHP5CONFIG --includes 2>/dev/null`
-        if test -n "$PHP5INC"; then
-          AC_MSG_RESULT($PHP5INC)
-        else
-          AC_MSG_RESULT(not found)
-        fi
-        ;;
-      "")
-        AC_MSG_RESULT([could not find $PHP5CONFIG or obtain PHP5 version from it]) ;;
-      *)
-        AC_MSG_RESULT([found PHP $php_version - not PHP 5]) ;;
-      esac
-    fi
-fi
-AC_SUBST(PHP5)
-AC_SUBST(PHP5INC)
 
 #-------------------------------------------------------------------------
 # Look for PHP7
@@ -2384,35 +2357,36 @@ else
 if test "x$LUABIN" = xyes; then
    # We look for a versioned Lua binary first, as there can be
    # multiple versions of Lua installed on some systems (like Debian).
-   # The search order should match the include-file and library search
-   # orders below (a Lua shared library built for one version may not
-   # work with a Lua binary of a different version).
    AC_PATH_PROGS(LUABIN, [lua5.4 lua5.3 lua5.2 lua5.1 lua])
 fi
 
 # check version: we need Lua 5.x
 if test "$LUABIN"; then
   AC_MSG_CHECKING(Lua version)
-  # if version 5.x
-  LUAV5=`$LUABIN -e 'if string.sub(_VERSION,5,5)=="5" then print "1" end'`
-  # if not version 5.0
-  LUAV51=`$LUABIN -e 'if string.sub(_VERSION,5,7)~="5.0" then print "1" end'`
-
-  if test -z "$LUAV5"; then
-    AC_MSG_WARN(Not Lua 5.x, SWIG does not support this version of Lua)
-    LUABIN=""
-  elif test -z "$LUAV51"; then
-    AC_MSG_RESULT(Lua 5.0.x)
+  [LUA_VERSION=`$LUABIN -e 'print(string.match(_VERSION, "%d+[.]%d+"))'`]
+  # For 5.0 and 5.1 header and libraries may be named using 50 or 51.
+  LUA_VERSION_NO_DOTS=
+  if test -n "$LUA_VERSION" ; then
+    AC_MSG_RESULT([Lua $LUA_VERSION.x])
   else
-    AC_MSG_RESULT(Lua 5.1 or later)
+    AC_MSG_RESULT([failed])
   fi
+  case $LUA_VERSION in
+    5.0) LUA_VERSION_NO_DOTS=50 ;;
+    5.1) LUA_VERSION_NO_DOTS=51 ;;
+    5.*) ;;
+    *)
+      AC_MSG_WARN([Not Lua 5.x, SWIG does not support this version of Lua])
+      LUABIN=""
+      ;;
+  esac
 fi
 
 if test "$LUABIN"; then
   AC_MSG_CHECKING(whether Lua dynamic loading is enabled)
   # using Lua to check Lua
   # lua 5.0 & 5.1 have different fn names
-  if test -z "$LUAV51"; then
+  if test "$LUA_VERSION" = "5.0"; then
     LUADYNAMICLOADLIB=`$LUABIN -e '_,_,c=loadlib("no_such_lib","") if c~="absent" then print "1" end'`
   else
     LUADYNAMICLOADLIB=`$LUABIN -e '_,_,c=package.loadlib("no_such_lib","") if c~="absent" then print "1" end'`
@@ -2441,7 +2415,12 @@ if test "$LUABIN"; then
       # The ordering of the include directories to search should match
       # the ordering of libraries to search in the library test below.
       inc=/usr/include
-      dirs="$inc/lua5.4 $inc/lua5.3 $inc/lua5.2 $inc/lua5.1 $inc/lua51 $inc/lua5.0 $inc/lua50 /usr/local/include"
+      incloc=/usr/local/include
+      dirs="$inc/lua$LUA_VERSION"
+      test -z "$LUA_VERSION_NO_DOTS" || dirs="$dirs $inc/lua$LUA_VERSION_NO_DOTS"
+      dirs="$dirs $incloc/lua$LUA_VERSION"
+      test -z "$LUA_VERSION_NO_DOTS" || dirs="$dirs $incloc/lua$LUA_VERSION_NO_DOTS"
+      dirs="$dirs $incloc"
       for i in $dirs; do
         #echo "$i"
         if test -r $i/lua.h; then
@@ -2464,11 +2443,13 @@ if test "$LUABIN"; then
   if test -n "$LUALIB"; then
     AC_CHECK_FILE($LUALIB/liblua.a,[LUALINK="-L$LUALIB -llua"],[LUABIN=])
   else
-    AC_SEARCH_LIBS(lua_close, [lua lua5.4 lua5.3 lua5.2 lua5.1 lua51 lua5.0 lua50], [LUALINK="-l$ac_lib"],[LUABIN=])
+    libs="lua lua$LUA_VERSION"
+    test -z "$LUA_VERSION_NO_DOTS" || libs="$libs lua$LUA_VERSION_NO_DOTS"
+    AC_SEARCH_LIBS(lua_close, [$libs], [LUALINK="-l$ac_lib"],[LUABIN=])
   fi
 
   # adding lualib for lua 5.0
-  if test -z "$LUAV51"; then # extra for lua 5.0
+  if test "$LUA_VERSION" = "5.0"; then
     LUALINK="$LUALINK -llualib"
   fi
 
@@ -2594,7 +2575,7 @@ else
     GOVERSIONOPTION=version
     go_version=$($GO $GOVERSIONOPTION | sed -e 's/go version //')
     case "$go_version" in
-    go1 | go1.[[01234]]*)
+    go1 | go1.[[01234]] | go1.[[01234]].*)
       GOC=$(sh -c "$(go env) && echo \$GOCHAR")c
       ;;
     *)
@@ -2603,7 +2584,7 @@ else
     esac
     AC_MSG_CHECKING([whether go version is too old])
     case $go_version in
-    go1.1* | go1.0* | go1 )
+    go1.1.* | go1.1 | go1.0 | go1.0.* | go1 )
       AC_MSG_RESULT([yes - minimum version is 1.2])
       GO=
       GOOPT="-intgosize 32"
@@ -2621,13 +2602,13 @@ else
       ;;
     esac
     case $go_version in
-    go1.0* | go1 | go1.1*)
+    go1.0 | go1.0.* | go1 | go1.1 | go1.1.*)
       GOOPT="$GOOPT -use-shlib"
       ;;
-    go1.2*)
+    go1.2 | go1.2.*)
       GO12=true
       ;;
-    go1.3* | go1.4*)
+    go1.3 | go1.3.* | go1.4 | go1.4.*)
       GO13=true
       ;;
     *)
@@ -2839,13 +2820,6 @@ fi
 AC_SUBST(SKIP_PHP)
 
 
-SKIP_PHP5=
-if test -z "$PHP5" || test -z "$PHP5INC" ; then
-    SKIP_PHP5="1"
-fi
-AC_SUBST(SKIP_PHP5)
-
-
 SKIP_OCAML=
 if test -z "$OCAMLC" ; then
     SKIP_OCAML="1"
@@ -3035,7 +3009,6 @@ AC_CONFIG_FILES([
     Examples/test-suite/octave/Makefile
     Examples/test-suite/perl5/Makefile
     Examples/test-suite/php/Makefile
-    Examples/test-suite/php5/Makefile
     Examples/test-suite/pike/Makefile
     Examples/test-suite/python/Makefile
     Examples/test-suite/ruby/Makefile
@@ -3110,7 +3083,6 @@ test -n "$SKIP_OCAML"		|| langs="${langs}ocaml "
 test -n "$SKIP_OCTAVE"		|| langs="${langs}octave "
 test -n "$SKIP_PERL5"		|| langs="${langs}perl5 "
 test -n "$SKIP_PHP"		|| langs="${langs}php "
-test -n "$SKIP_PHP5"		|| langs="${langs}php5 "
 test -n "$SKIP_PIKE"		|| langs="${langs}pike "
 test -n "$SKIP_PYTHON"		|| langs="${langs}python "
 test -n "$SKIP_R"		|| langs="${langs}r "

@@ -17,6 +17,10 @@ elif [[ "$CC" == gcc-7 ]]; then
 	travis_retry sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
 	travis_retry sudo apt-get -qq update
 	travis_retry sudo apt-get install -qq g++-7
+elif [[ "$CC" == gcc-8 ]]; then
+	travis_retry sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+	travis_retry sudo apt-get -qq update
+	travis_retry sudo apt-get install -qq g++-8
 fi
 
 travis_retry sudo apt-get -qq install libboost-dev
@@ -79,9 +83,6 @@ case "$SWIGLANG" in
 			travis_retry sudo apt-get -qq update
 			travis_retry sudo apt-get -qq install liboctave${VER}-dev
 		fi
-		;;
-	"php5")
-		travis_retry sudo apt-get -qq install php5-cli php5-dev
 		;;
 	"php")
 		travis_retry sudo add-apt-repository -y ppa:ondrej/php

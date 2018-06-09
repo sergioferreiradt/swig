@@ -1,10 +1,8 @@
-#!/usr/bin/python
-
 import doxygen_ignore
 import inspect
-import commentVerifier
+import comment_verifier
 
-commentVerifier.check(inspect.getdoc(doxygen_ignore.func),
+comment_verifier.check(inspect.getdoc(doxygen_ignore.func),
     """\
 A contrived example of ignoring too many commands in one comment.
 

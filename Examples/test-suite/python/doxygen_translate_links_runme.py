@@ -1,13 +1,11 @@
-#!/usr/bin/python
-
 import doxygen_translate_links
 import inspect
 import string
 import sys
-import commentVerifier
+import comment_verifier
 
 
-commentVerifier.check(inspect.getdoc(doxygen_translate_links.function),
+comment_verifier.check(inspect.getdoc(doxygen_translate_links.function),
 r"""Testing typenames converting in @ link
 
 superFunc(int,std::string)

@@ -11,7 +11,7 @@ endif
 LANGUAGE     = python
 PYTHON       = $(PYBIN)
 PYCODESTYLE       = @PYCODESTYLE@
-PYCODESTYLE_FLAGS = --ignore=E30,E402,E501,E731,W291,W391
+PYCODESTYLE_FLAGS = --ignore=E252,E30,E402,E501,E731,W291,W391
 
 #*_runme.py for Python 2.x, *_runme3.py for Python 3.x
 PY2SCRIPTSUFFIX = _runme.py
@@ -167,7 +167,7 @@ convert_testcase = \
 	  $(MAKE) $(SCRIPTDIR)/$(py_runme); \
 	fi
 
-$(SCRIPTDIR)/$(SCRIPTPREFIX)%$(SCRIPTSUFFIX): $(abspath $(srcdir)/$(SCRIPTPREFIX)%$(PY2SCRIPTSUFFIX))
+$(SCRIPTDIR)/$(SCRIPTPREFIX)%$(SCRIPTSUFFIX): $(srcdir)/$(SCRIPTPREFIX)%$(PY2SCRIPTSUFFIX)
 	test x$< = x$@ || cp $< $@ || exit 1
 	test x$(PY3) = x || $(PY2TO3) -w $@ >/dev/null 2>&1 || exit 1
 

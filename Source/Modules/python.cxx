@@ -17,7 +17,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <stdlib.h>
-#include "../DoxygenTranslator/src/PyDocConverter.h"
+#include "pydoc.h"
 
 #include <iostream>
 #include <stdint.h>
@@ -755,30 +755,6 @@ public:
 
     Printf(f_runtime, "\n");
 
-    Printf(f_header, "#if (PY_VERSION_HEX <= 0x02000000)\n");
-    Printf(f_header, "# if !defined(SWIG_PYTHON_CLASSIC)\n");
-    Printf(f_header, "#  error \"This python version requires swig to be run with the '-classic' option\"\n");
-    Printf(f_header, "# endif\n");
-    Printf(f_header, "#endif\n");
-
-    if (modern) {
-      Printf(f_header, "#if (PY_VERSION_HEX <= 0x02020000)\n");
-      Printf(f_header, "# error \"This python version requires swig to be run with the '-nomodern' option\"\n");
-      Printf(f_header, "#endif\n");
-    }
-
-    if (modernargs) {
-      Printf(f_header, "#if (PY_VERSION_HEX <= 0x02020000)\n");
-      Printf(f_header, "# error \"This python version requires swig to be run with the '-nomodernargs' option\"\n");
-      Printf(f_header, "#endif\n");
-    }
-
-    if (fastunpack) {
-      Printf(f_header, "#ifndef METH_O\n");
-      Printf(f_header, "# error \"This python version requires swig to be run with the '-nofastunpack' option\"\n");
-      Printf(f_header, "#endif\n");
-    }
-
     if (fastquery) {
       Printf(f_header, "#ifdef SWIG_TypeQuery\n");
       Printf(f_header, "# undef SWIG_TypeQuery\n");
@@ -854,60 +830,39 @@ public:
       if (!builtin && fastproxy) {
 	Printv(default_import_code, "if _swig_python_version_info >= (3, 0, 0):\n", NULL);
 	Printf(default_import_code, tab4 "new_instancemethod = lambda func, inst, cls: %s.SWIG_PyInstanceMethod_New(func)\n", module);
-	Printv(default_import_code, "else:\n", NULL);
+	Printv(default_import_code, "elif _swig_python_version_info >= (2, 7, 0):\n", NULL);
 	Printv(default_import_code, tab4, "from new import instancemethod as new_instancemethod\n", NULL);
+	Printv(default_import_code, "else:\n", NULL);
+	Printv(default_import_code, tab4, "raise RuntimeError('Python 2.7 or later required')\n", NULL);
+      } else {
+	Printv(default_import_code, "if _swig_python_version_info < (2, 7, 0):\n", NULL);
+	Printv(default_import_code, tab4, "raise RuntimeError('Python 2.7 or later required')\n", NULL);
       }
 
       /* Import the C-extension module.  This should be a relative import,
        * since the shadow module may also have been imported by a relative
        * import, and there is thus no guarantee that the C-extension is on
        * sys.path.  Relative imports must be explicitly specified from 2.6.0
-       * onwards (implicit relative imports will raise a DeprecationWarning
-       * in 2.6, and fail in 2.7 onwards), but the relative import syntax
-       * isn't available in python 2.4 or earlier, so we have to write some
-       * code conditional on the python version.
+       * onwards (implicit relative imports raised a DeprecationWarning in 2.6,
+       * and fail in 2.7 onwards).
        *
-       * For python 2.7.0 and newer, first determine the shadow wrappers package
-       * based on the __name__ it was given by the importer that loaded it.
-       * Then construct a name for the module based on the package name and the
-       * module name (we know the module name).  Use importlib to try and load 
-       * it.  If an attempt to load the module with importlib fails with an
-       * ImportError then fallback and try and load just the module name from
-       * the global namespace.
+       * First determine the shadow wrappers package based on the __name__ it
+       * was given by the importer that loaded it.  Then construct a name for
+       * the module based on the package name and the module name (we know the
+       * module name).  Use importlib to try and load it.  If an attempt to
+       * load the module with importlib fails with an ImportError then fallback
+       * and try and load just the module name from the global namespace.
        */
-      Printv(default_import_code, "if _swig_python_version_info >= (2, 7, 0):\n", NULL);
-      Printv(default_import_code, tab4, "def swig_import_helper():\n", NULL);
-      Printv(default_import_code, tab8, "import importlib\n", NULL);
-      Printv(default_import_code, tab8, "pkg = __name__.rpartition('.')[0]\n", NULL);
-      Printf(default_import_code, tab8 "mname = '.'.join((pkg, '%s')).lstrip('.')\n", module);
-      Printv(default_import_code, tab8, "try:\n", NULL);
-      Printv(default_import_code, tab8, tab4, "return importlib.import_module(mname)\n", NULL);
-      Printv(default_import_code, tab8, "except ImportError:\n", NULL);
-      Printf(default_import_code, tab8 tab4 "return importlib.import_module('%s')\n", module);
-      Printf(default_import_code, tab4 "%s = swig_import_helper()\n", module);
-      Printv(default_import_code, tab4, "del swig_import_helper\n", NULL);
-      Printv(default_import_code, "elif _swig_python_version_info >= (2, 6, 0):\n", NULL);
-      Printv(default_import_code, tab4, "def swig_import_helper():\n", NULL);
-      Printv(default_import_code, tab8, "from os.path import dirname\n", NULL);
-      Printv(default_import_code, tab8, "import imp\n", NULL);
-      Printv(default_import_code, tab8, "fp = None\n", NULL);
-      Printv(default_import_code, tab8, "try:\n", NULL);
-      Printf(default_import_code, tab4 tab8 "fp, pathname, description = imp.find_module('%s', [dirname(__file__)])\n", module);
-      Printf(default_import_code, tab8 "except ImportError:\n");
-      /* At here, the module may already loaded, so simply import it. */
-      Printf(default_import_code, tab4 tab8 "import %s\n", module);
-      Printf(default_import_code, tab4 tab8 "return %s\n", module);
-      Printv(default_import_code, tab8 "try:\n", NULL);
-      /* imp.load_module() handles fp being None. */
-      Printf(default_import_code, tab4 tab8 "_mod = imp.load_module('%s', fp, pathname, description)\n", module);
-      Printv(default_import_code, tab8, "finally:\n", NULL);
-      Printv(default_import_code, tab4 tab8 "if fp is not None:\n", NULL);
-      Printv(default_import_code, tab8 tab8, "fp.close()\n", NULL);
-      Printv(default_import_code, tab8, "return _mod\n", NULL);
-      Printf(default_import_code, tab4 "%s = swig_import_helper()\n", module);
-      Printv(default_import_code, tab4, "del swig_import_helper\n", NULL);
-      Printv(default_import_code, "else:\n", NULL);
-      Printf(default_import_code, tab4 "import %s\n", module);
+      Printv(default_import_code, "def swig_import_helper():\n", NULL);
+      Printv(default_import_code, tab4, "import importlib\n", NULL);
+      Printv(default_import_code, tab4, "pkg = __name__.rpartition('.')[0]\n", NULL);
+      Printf(default_import_code, tab4 "mname = '.'.join((pkg, '%s')).lstrip('.')\n", module);
+      Printv(default_import_code, tab4, "try:\n", NULL);
+      Printv(default_import_code, tab8, "return importlib.import_module(mname)\n", NULL);
+      Printv(default_import_code, tab4, "except ImportError:\n", NULL);
+      Printf(default_import_code, tab8 "return importlib.import_module('%s')\n", module);
+      Printf(default_import_code, "%s = swig_import_helper()\n", module);
+      Printv(default_import_code, "del swig_import_helper\n", NULL);
 
       if (builtin) {
         /*
@@ -939,10 +894,6 @@ public:
        * module. */
       Printv(default_import_code, "del _swig_python_version_info\n\n", NULL);
 
-      if (modern || !classic) {
-	Printv(f_shadow, "try:\n", tab4, "_swig_property = property\n", "except NameError:\n", tab4, "pass  # Python < 2.2 doesn't have 'property'.\n\n", NULL);
-      }
-
       /* Need builtins to qualify names like Exception that might also be
          defined in this module (try both Python 3 and Python 2 names) */
       Printv(f_shadow, "try:\n", tab4, "import builtins as __builtin__\n", "except ImportError:\n", tab4, "import __builtin__\n", NULL);
@@ -953,16 +904,16 @@ public:
 	// Python-2.2 object hack
 	Printv(f_shadow,
 	       "\n", "def _swig_setattr_nondynamic(self, class_type, name, value, static=1):\n",
-	       tab4, "if (name == \"thisown\"):\n", tab8, "return self.this.own(value)\n",
-	       tab4, "if (name == \"this\"):\n", tab8, "if type(value).__name__ == 'SwigPyObject':\n", tab4, tab8, "self.__dict__[name] = value\n",
+	       tab4, "if name == \"thisown\":\n", tab8, "return self.this.own(value)\n",
+	       tab4, "if name == \"this\":\n", tab8, "if type(value).__name__ == 'SwigPyObject':\n", tab4, tab8, "self.__dict__[name] = value\n",
 #ifdef USE_THISOWN
 	       tab4, tab8, "if hasattr(value,\"thisown\"):\n", tab8, tab8, "self.__dict__[\"thisown\"] = value.thisown\n", tab4, tab8, "del value.thisown\n",
 #endif
 	       tab4, tab8, "return\n", tab4, "method = class_type.__swig_setmethods__.get(name, None)\n", tab4, "if method:\n", tab4, tab4, "return method(self, value)\n",
 #ifdef USE_THISOWN
-	       tab4, "if (not static) or (name == \"thisown\"):\n",
+	       tab4, "if not static or name == \"thisown\":\n",
 #else
-	       tab4, "if (not static):\n",
+	       tab4, "if not static:\n",
 #endif
 	       NIL);
 	if (!classic) {
@@ -981,7 +932,7 @@ public:
 
 	Printv(f_shadow,
 	       "\n", "def _swig_getattr(self, class_type, name):\n",
-	       tab4, "if (name == \"thisown\"):\n", tab8, "return self.this.own()\n",
+	       tab4, "if name == \"thisown\":\n", tab8, "return self.this.own()\n",
 	       tab4, "method = class_type.__swig_getmethods__.get(name, None)\n",
 	       tab4, "if method:\n", tab8, "return method(self)\n",
 	       tab4, "raise AttributeError(\"'%s' object has no attribute '%s'\" % (class_type.__name__, name))\n\n", NIL);
@@ -1004,7 +955,7 @@ public:
 #ifdef USE_THISOWN
 	       tab4, tab4, "if hasattr(self, name) or (name in (\"this\", \"thisown\")):\n",
 #else
-	       tab4, tab4, "if (name == \"thisown\"):\n", tab8, tab4, "return self.this.own(value)\n", tab4, tab4, "if hasattr(self, name) or (name == \"this\"):\n",
+	       tab4, tab4, "if name == \"thisown\":\n", tab8, tab4, "return self.this.own(value)\n", tab4, tab4, "if hasattr(self, name) or (name == \"this\"):\n",
 #endif
 	       tab4, tab4, tab4, "set(self, name, value)\n",
 	       tab4, tab4, "else:\n",
@@ -1012,9 +963,7 @@ public:
       }
 
       if (directorsEnabled()) {
-	// Try loading weakref.proxy, which is only available in Python 2.1 and higher
-	Printv(f_shadow,
-	       "try:\n", tab4, "import weakref\n", tab4, "weakref_proxy = weakref.proxy\n", "except __builtin__.Exception:\n", tab4, "weakref_proxy = lambda x: x\n", "\n\n", NIL);
+	Printv(f_shadow, "import weakref\n\n", NIL);
       }
     }
     // Include some information in the code
@@ -1688,14 +1637,16 @@ public:
 
   /* ------------------------------------------------------------
    * build_combined_docstring()
-   *    Build the full docstring which may be a combination of the
-   *    explicit docstring and autodoc string or, if none of them
-   *    is specified, obtained by translating Doxygen comment to
-   *    Python.
    *
-   *    Return new string to be deleted by caller (never NIL but
-   *    may be empty if there is no docstring).
+   * Build the full docstring which may be a combination of the
+   * explicit docstring and autodoc string or, if none of them
+   * is specified, obtained by translating Doxygen comment to
+   * Python.
+   *
+   * Return new string to be deleted by caller (never NIL but
+   * may be empty if there is no docstring).
    * ------------------------------------------------------------ */
+
   String *build_combined_docstring(Node *n, autodoc_t ad_type, const String *indent = "") {
     String *docstr = Getattr(n, "feature:docstring");
     if (docstr && Len(docstr)) {
@@ -1708,14 +1659,14 @@ public:
     }
 
     if (Getattr(n, "feature:autodoc") && !GetFlag(n, "feature:noautodoc")) {
-      String* autodoc = make_autodoc(n, ad_type);
+      String *autodoc = make_autodoc(n, ad_type);
       if (autodoc && Len(autodoc) > 0) {
 	if (docstr && Len(docstr)) {
 	  Append(autodoc, "\n");
 	  Append(autodoc, docstr);
 	}
 
-	String* tmp = autodoc;
+	String *tmp = autodoc;
 	autodoc = docstr;
 	docstr = tmp;
       }
@@ -1751,8 +1702,7 @@ public:
     //      """
     //
     // otherwise, put it all on a single line
-    if (Strchr(docstr, '\n'))
-    {
+    if (Strchr(docstr, '\n')) {
       String *tmp = NewString("");
       Append(tmp, "\n");
       Append(tmp, indent_docstring(docstr, indent));
@@ -3728,7 +3678,7 @@ public:
       }
 
       if (f_s) {
-	if(needs_swigconstant(n)) {
+	if (needs_swigconstant(n)) {
 	  Printv(f_s, "\n",NIL);
 	  Printv(f_s, module, ".", iname, "_swigconstant(",module,")\n", NIL);
 	}
@@ -3960,7 +3910,7 @@ public:
 	Printv(f_shadow, tab8, "self.this.disown()\n", NIL);
 #endif
 	Printv(f_shadow, tab8, module, ".", mrename, "(self)\n", NIL);
-	Printv(f_shadow, tab8, "return weakref_proxy(self)\n", NIL);
+	Printv(f_shadow, tab8, "return weakref.proxy(self)\n", NIL);
 	Delete(mrename);
       }
     }
@@ -4252,9 +4202,7 @@ public:
     printSlot(f, getSlot(n, "feature:python:tp_subclasses"), "tp_subclasses", "PyObject *");
     printSlot(f, getSlot(n, "feature:python:tp_weaklist"), "tp_weaklist", "PyObject *");
     printSlot(f, getSlot(n, "feature:python:tp_del"), "tp_del", "destructor");
-    Printv(f, "#if PY_VERSION_HEX >= 0x02060000\n", NIL);
     printSlot(f, getSlot(n, "feature:python:tp_version_tag"), "tp_version_tag", "int");
-    Printv(f, "#endif\n", NIL);
     Printv(f, "#if PY_VERSION_HEX >= 0x03040000\n", NIL);
     printSlot(f, getSlot(n, "feature:python:tp_finalize"), "tp_finalize", "destructor");
     Printv(f, "#endif\n", NIL);
@@ -4262,9 +4210,7 @@ public:
     printSlot(f, getSlot(n, "feature:python:tp_allocs"), "tp_allocs", "Py_ssize_t");
     printSlot(f, getSlot(n, "feature:python:tp_frees"), "tp_frees", "Py_ssize_t");
     printSlot(f, getSlot(n, "feature:python:tp_maxalloc"), "tp_maxalloc", "Py_ssize_t");
-    Printv(f, "#if PY_VERSION_HEX >= 0x02050000\n", NIL);
     printSlot(f, getSlot(n, "feature:python:tp_prev"), "tp_prev");
-    Printv(f, "#endif\n", NIL);
     printSlot(f, getSlot(n, "feature:python:tp_next"), "tp_next");
     Printv(f, "#endif\n", NIL);
     Printf(f, "  },\n");
@@ -4330,9 +4276,7 @@ public:
     printSlot(f, getSlot(n, "feature:python:nb_divide"), "nb_true_divide", "binaryfunc");
     printSlot(f, getSlot(n, "feature:python:nb_inplace_floor_divide"), "nb_inplace_floor_divide", "binaryfunc");
     printSlot(f, getSlot(n, "feature:python:nb_inplace_divide"), "nb_inplace_true_divide", "binaryfunc");
-    Printv(f, "#if PY_VERSION_HEX >= 0x02050000\n", NIL);
     printSlot(f, getSlot(n, "feature:python:nb_index"), "nb_index", "unaryfunc");
-    Printv(f, "#endif\n", NIL);
     Printv(f, "#if PY_VERSION_HEX >= 0x03050000\n", NIL);
     printSlot(f, getSlot(n, "feature:python:nb_matrix_multiply"), "nb_matrix_multiply", "binaryfunc");
     printSlot(f, getSlot(n, "feature:python:nb_inplace_matrix_multiply"), "nb_inplace_matrix_multiply", "binaryfunc");
@@ -4376,10 +4320,8 @@ public:
     printSlot(f, getSlot(n, "feature:python:bf_getsegcount"), "bf_getsegcount", "segcountproc");
     printSlot(f, getSlot(n, "feature:python:bf_getcharbuffer"), "bf_getcharbuffer", "charbufferproc");
     Printv(f, "#endif\n", NIL);
-    Printv(f, "#if PY_VERSION_HEX >= 0x02060000\n", NIL);
     printSlot(f, getSlot(n, "feature:python:bf_getbuffer"), "bf_getbuffer", "getbufferproc");
     printSlot(f, getSlot(n, "feature:python:bf_releasebuffer"), "bf_releasebuffer", "releasebufferproc");
-    Printv(f, "#endif\n", NIL);
     Printf(f, "  },\n");
 
     // PyObject *ht_name, *ht_slots, *ht_qualname;
@@ -4589,7 +4531,7 @@ public:
 
 	  Printv(f_shadow, tab4, "__getattr__ = lambda self, name: _swig_getattr(self, ", class_name, ", name)\n", NIL);
 	} else {
-	  Printv(f_shadow, tab4, "thisown = _swig_property(lambda x: x.this.own(), ", "lambda x, v: x.this.own(v), doc='The membership flag')\n", NIL);
+	  Printv(f_shadow, tab4, "thisown = property(lambda x: x.this.own(), ", "lambda x, v: x.this.own(v), doc='The membership flag')\n", NIL);
 	  /* Add static attribute */
 	  if (GetFlag(n, "feature:python:nondynamic")) {
 	    Printv(f_shadow_file,
@@ -4723,8 +4665,8 @@ public:
 		   class_name);
 	  }
 	}
-	Printf(f_shadow_file, "%s_swigregister = %s.%s_swigregister\n", class_name, module, class_name);
-	Printf(f_shadow_file, "%s_swigregister(%s)\n", class_name, class_name);
+	Printf(f_shadow_file, "# Register %s in %s:\n", class_name, module);
+	Printf(f_shadow_file, "%s.%s_swigregister(%s)\n", module, class_name, class_name);
       }
 
       shadow_indent = 0;
@@ -5181,7 +5123,7 @@ public:
       if (!classic) {
 	if (!modern)
 	  Printv(f_shadow, tab4, "if _newclass:\n", tab4, NIL);
-	Printv(f_shadow, tab4, symname, " = _swig_property(", module, ".", getname, NIL);
+	Printv(f_shadow, tab4, symname, " = property(", module, ".", getname, NIL);
 	if (assignable)
 	  Printv(f_shadow, ", ", module, ".", setname, NIL);
 	Printv(f_shadow, ")\n", NIL);
@@ -5255,7 +5197,7 @@ public:
 	if (!classic && !builtin) {
 	  if (!modern)
 	    Printv(f_shadow, tab4, "if _newclass:\n", tab4, NIL);
-	  Printv(f_shadow, tab4, symname, " = _swig_property(", module, ".", getname, NIL);
+	  Printv(f_shadow, tab4, symname, " = property(", module, ".", getname, NIL);
 	  if (assignable)
 	    Printv(f_shadow, ", ", module, ".", setname, NIL);
 	  Printv(f_shadow, ")\n", NIL);
@@ -5761,7 +5703,7 @@ int PYTHON::classDirectorMethod(Node *n, Node *parent, String *super) {
 
     /*
      * Python method may return a simple object, or a tuple.
-     * for in/out aruments, we have to extract the appropriate PyObjects from the tuple,
+     * for in/out arguments, we have to extract the appropriate PyObjects from the tuple,
      * then marshal everything back to C/C++ (return value and output arguments).
      *
      */

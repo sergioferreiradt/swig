@@ -2354,7 +2354,7 @@ public:
 
       /*
        * Python method may return a simple object, or a tuple.
-       * for in/out aruments, we have to extract the appropriate PyObjects from the tuple,
+       * for in/out arguments, we have to extract the appropriate PyObjects from the tuple,
        * then marshal everything back to C/C++ (return value and output arguments).
        *
        */
@@ -2512,8 +2512,8 @@ public:
       Printf(f_directors_h, "    virtual ~%s() noexcept;\n", DirectorClassName);
       Printf(f_directors, "%s::~%s() noexcept {%s}\n\n", DirectorClassName, DirectorClassName, body);
     } else if (Getattr(n, "throw")) {
-      Printf(f_directors_h, "    virtual ~%s() throw ();\n", DirectorClassName);
-      Printf(f_directors, "%s::~%s() throw () {%s}\n\n", DirectorClassName, DirectorClassName, body);
+      Printf(f_directors_h, "    virtual ~%s() throw();\n", DirectorClassName);
+      Printf(f_directors, "%s::~%s() throw() {%s}\n\n", DirectorClassName, DirectorClassName, body);
     } else {
       Printf(f_directors_h, "    virtual ~%s();\n", DirectorClassName);
       Printf(f_directors, "%s::~%s() {%s}\n\n", DirectorClassName, DirectorClassName, body);
