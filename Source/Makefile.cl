@@ -13,7 +13,7 @@ endif
 
 swig_CFLAGS += /EHsc
 
-swig_INCLUDES := -IInclude/msvc -IInclude -ICParse -IPreprocessor -IDoh -IModules -ISwig
+swig_INCLUDES := -IInclude/msvc -IInclude -ICParse -IPreprocessor -IDoh -IModules -IDoxygen -ISwig
 swig_LIBS := pcre3.lib
 
 swig_HEADERS = Include/swigwarn.h		\
@@ -32,7 +32,11 @@ swig_SOURCES =	CParse/cscanner.c		\
 		DOH/memory.c			\
 		DOH/string.c			\
 		DOH/void.c			\
-		$(wildcard DoxygenTranslator/src/*.cpp) \
+		Doxygen/doxyentity.cxx		\
+		Doxygen/doxyparser.cxx		\
+		Doxygen/doxytranslator.cxx	\
+		Doxygen/javadoc.cxx		\
+		Doxygen/pydoc.cxx		\
 		Modules/allegrocl.cxx		\
 		Modules/allocate.cxx		\
 		Modules/browser.cxx		\
@@ -61,7 +65,6 @@ swig_SOURCES =	CParse/cscanner.c		\
 		Modules/overload.cxx		\
 		Modules/perl5.cxx		\
 		Modules/php.cxx			\
-		Modules/php5.cxx		\
 		Modules/pike.cxx		\
 		Modules/python.cxx		\
 		Modules/r.cxx			\
