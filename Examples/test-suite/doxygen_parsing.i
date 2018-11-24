@@ -36,6 +36,12 @@ struct SomeStruct
  */
 int someVar=42;
 
+/**
+ * The constant comment
+ */
+#define CONSTANT_VALUE 4242
+
+/// SomeAnotherClass description
 class SomeAnotherClass
 {
 public:
@@ -126,4 +132,9 @@ struct SomeAnotherStruct
 	}
 };
 
+#ifdef SWIGPYTHON_BUILTIN
+bool is_python_builtin() { return true; }
+#else
+bool is_python_builtin() { return false; }
+#endif
 %}

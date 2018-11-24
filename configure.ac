@@ -480,16 +480,23 @@ if test x"${with_tclconfig}" != x ; then
    fi
 fi
 # check in a few common install locations
+dirs="/usr/lib*/ /usr/lib*/tcl*/ /usr/local/lib*/ /usr/local/lib*/tcl*/"
+case $host in
+*-*-darwin*)
+  dirs="/System/Library/Frameworks/Tcl.framework/ $dirs"
+  ;;
+*)
+  ;;
+esac
 if test x"${TCLCONFIG}" = x ; then
-    for i in `ls -d -r /usr/lib*/ 2>/dev/null` \
-	     `ls -d -r /usr/lib*/tcl*/ 2>/dev/null` \
-	     `ls -d -r /usr/local/lib*/ 2>/dev/null` \
-	     `ls -d -r /usr/local/lib*/tcl*/ 2>/dev/null` ; do
-	if test -f $i"tclConfig.sh" ; then
-	    TCLCONFIG=`(cd $i; pwd)`
-	    break
-	fi
+  for d in $dirs ; do
+    for i in `ls -d -r $d 2>/dev/null` ; do
+      if test -f $i"tclConfig.sh" ; then
+        TCLCONFIG=`(cd $i; pwd)`
+        break
+      fi
     done
+  done
 fi
 if test x"${TCLCONFIG}" = x ; then
     AC_MSG_RESULT(no)
@@ -596,7 +603,7 @@ if test x"${PYBIN}" = xno; then
 else
   # First figure out the name of the Python executable
   if test "x$PYBIN" = xyes; then
-    AC_CHECK_PROGS(PYTHON, [python python2.8 python2.7 python2.6 python2.5 python2.4 python2.3 python2.2 python2.1 python2.0])
+    AC_CHECK_PROGS(PYTHON, [python python2.7])
   else
     PYTHON="$PYBIN"
   fi
@@ -746,7 +753,7 @@ else
     if test x"$PYOSNAME" = x"nt" -a x"$PYSEPARATOR" = x"\\" -a $PYVER -ge 3; then
       PYTHON3="$PYTHON"
     else
-      for py_ver in 3 3.9 3.8 3.7 3.6 3.5 3.4 3.3 3.2 3.1 3.0 ""; do
+      for py_ver in 3 3.9 3.8 3.7 3.6 3.5 3.4 3.3 3.2 ""; do
         AC_CHECK_PROGS(PYTHON3, [python$py_ver])
         if test -n "$PYTHON3"; then
           AC_CHECK_PROGS(PY3CONFIG, [$PYTHON3-config])
@@ -819,7 +826,8 @@ else
       PY3PREFIX=`($PY3CONFIG --prefix) 2>/dev/null`
       AC_MSG_RESULT($PY3PREFIX)
       AC_MSG_CHECKING(for Python 3.x exec-prefix)
-      PY3EPREFIX=`($PY3CONFIG --exec-prefix) 2>/dev/null`
+      # Piped through xargs to strip trailing whitespace (bug in msys2 + mingw Python)
+      PY3EPREFIX=`($PY3CONFIG --exec-prefix | xargs) 2>/dev/null`
       AC_MSG_RESULT($PY3EPREFIX)
 
       # Note: I could not think of a standard way to get the version string from different versions.
@@ -903,6 +911,17 @@ if test -n "$PYTHON3"; then
   if test "x$PY2TO3BIN" = xyes; then
     py3to2=`echo $PYTHON3 | sed -e "s/python/2to3-/"`
     AC_CHECK_PROGS(PY2TO3, $py3to2 2to3)
+    if test -z "$PY2TO3"; then
+      # Windows distributions don't always have the 2to3 executable
+      AC_MSG_CHECKING(for 2to3.py)
+      py2to3script="$PY3PREFIX/Tools/scripts/2to3.py"
+      if test -f "$py2to3script"; then
+        AC_MSG_RESULT($py2to3script)
+        PY2TO3="$PYTHON3 $py2to3script"
+      else
+        AC_MSG_RESULT(Not found)
+      fi
+    fi
   else
     PY2TO3="$PY2TO3BIN"
   fi
@@ -1349,6 +1368,7 @@ if test -z "$JAVAINCDIR" ; then
       if test -r "$d/jni.h" ; then
 	JAVAINCDIR=$d
 	JAVAINC=-I\"$d\"
+	JAVA_HOME_MAYBE="`dirname $d`"
 	break
       fi
     done
@@ -1373,6 +1393,26 @@ else
     AC_MSG_RESULT($JAVAMDDIR)
     JAVAINC="${JAVAINC} ${JAVAMDDIR}"
   fi
+fi
+
+# Auto-detecting JAVA_HOME is not so easy, below will only work up to and including jdk8
+if test -z "$JAVA_HOME" && test -n "$JAVA_HOME_MAYBE" ; then
+  AC_MSG_CHECKING(for java jdk from jni include paths)
+  if test -r "$JAVA_HOME_MAYBE/lib/tools.jar" ; then
+    JAVA_HOME=$JAVA_HOME_MAYBE
+    AC_MSG_RESULT([$JAVA_HOME])
+  else
+    AC_MSG_RESULT(not found)
+  fi
+fi
+
+# Javadoc support required for the Java test-suite is available by default in jdk9+ and in tools.jar in earlier jdk versions
+AC_MSG_CHECKING(for java tools.jar)
+if test -n "$JAVA_HOME" && test -r "$JAVA_HOME/lib/tools.jar" ; then
+  JAVA_TOOLS_JAR="$JAVA_HOME/lib/tools.jar"
+  AC_MSG_RESULT([$JAVA_TOOLS_JAR])
+else
+  AC_MSG_RESULT(not found)
 fi
 
 case $host in
@@ -1437,11 +1477,11 @@ fi
 # Turned off due to spurious warnings in later versions of openjdk-1.8
 # JAVAFLAGS=-Xcheck:jni
 
-AC_SUBST(JAVA_HOME)
 AC_SUBST(JAVA)
 AC_SUBST(JAVAC)
 AC_SUBST(JAVAINC)
 AC_SUBST(JAVA_CLASSPATH_SEP)
+AC_SUBST(JAVA_TOOLS_JAR)
 AC_SUBST(JAVADYNAMICLINKING)
 AC_SUBST(JAVALIBRARYPREFIX)
 AC_SUBST(JAVASO)

@@ -718,10 +718,12 @@ std::string JavaDocConverter::indentAndInsertAsterisks(const string &doc) {
 
   size_t idx = doc.find('\n');
   size_t indent = 0;
+  bool singleLineComment = idx == string::npos;
   // Detect indentation.
   //   The first line in comment is the one after '/**', which may be
   //   spaces and '\n' or the text. In any case it is not suitable to detect
   //   indentation, so we have to skip the first '\n'.
+  //   However, if there is just one line, then use that line to detect indentation.
   if (idx != string::npos) {
     size_t nonspaceIdx = doc.find_first_not_of(" \t", idx + 1);
     if (nonspaceIdx != string::npos) {
@@ -767,7 +769,8 @@ std::string JavaDocConverter::indentAndInsertAsterisks(const string &doc) {
   size_t nonspaceEndIdx = translatedStr.find_last_not_of(" \t");
   if (nonspaceEndIdx != string::npos) {
     if (translatedStr[nonspaceEndIdx] != '\n') {
-      translatedStr += '\n';
+      if (!singleLineComment)
+	translatedStr += '\n';
     } else {
       // remove trailing spaces
       translatedStr = translatedStr.substr(0, nonspaceEndIdx + 1);
@@ -792,9 +795,7 @@ String *JavaDocConverter::makeDocumentation(Node *node) {
 
     string translatedStr = indentAndInsertAsterisks(doc);
 
-    String *comment = NewString(translatedStr.c_str());
-    // Append(comment, documentation); Replaceall(comment, "\n", "\n * ");
-    return comment;
+    return NewString(translatedStr.c_str());
   }
 
   DoxygenEntityList entityList = parser.createTree(node, documentation);

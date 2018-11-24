@@ -56,6 +56,26 @@ matrix:
       dist: trusty
     - compiler: gcc
       os: linux
+      env: SWIGLANG=javascript ENGINE=node VER=4 CPP11=1
+      sudo: required
+      dist: trusty
+    - compiler: gcc
+      os: linux
+      env: SWIGLANG=javascript ENGINE=node VER=6 CPP11=1
+      sudo: required
+      dist: trusty
+    - compiler: gcc
+      os: linux
+      env: SWIGLANG=javascript ENGINE=node VER=8 CPP11=1
+      sudo: required
+      dist: trusty
+    - compiler: gcc
+      os: linux
+      env: SWIGLANG=javascript ENGINE=node VER=10 CPP11=1
+      sudo: required
+      dist: trusty
+    - compiler: gcc
+      os: linux
       env: SWIGLANG=javascript ENGINE=jsc
       sudo: required
       dist: trusty
@@ -121,6 +141,16 @@ matrix:
       dist: trusty
     - compiler: gcc
       os: linux
+      env: SWIGLANG=python PY3=3 VER=3.2
+      sudo: required
+      dist: trusty
+    - compiler: gcc
+      os: linux
+      env: SWIGLANG=python PY3=3 VER=3.3
+      sudo: required
+      dist: trusty
+    - compiler: gcc
+      os: linux
       env: SWIGLANG=python PY3=3 VER=3.4
       sudo: required
       dist: trusty
@@ -136,7 +166,17 @@ matrix:
       dist: trusty
     - compiler: gcc
       os: linux
+      env: SWIGLANG=python PY3=3 VER=3.7
+      sudo: required
+      dist: trusty
+    - compiler: gcc
+      os: linux
       env: SWIGLANG=python SWIG_FEATURES=-builtin
+      sudo: required
+      dist: trusty
+    - compiler: gcc
+      os: linux
+      env: SWIGLANG=python SWIG_FEATURES="-builtin -O"
       sudo: required
       dist: trusty
     - os: linux
@@ -144,7 +184,7 @@ matrix:
       sudo: required
       dist: trusty
     - os: linux
-      env: SWIGLANG=python SWIG_FEATURES=-builtin SWIG_CC=gcc-6 SWIG_CXX=g++-6 CPP11=1 PY3=3 VER=3.6
+      env: SWIGLANG=python SWIG_FEATURES=-builtin SWIG_CC=gcc-6 SWIG_CXX=g++-6 CPP11=1 PY3=3 VER=3.7
       sudo: required
       dist: trusty
     - compiler: gcc
@@ -159,12 +199,17 @@ matrix:
       dist: trusty
     - compiler: gcc
       os: linux
-      env: SWIGLANG=python SWIG_FEATURES=-builtin PY3=3 VER=3.6
+      env: SWIGLANG=python SWIG_FEATURES=-builtin PY3=3 VER=3.7
       sudo: required
       dist: trusty
     - compiler: gcc
       os: linux
-      env: SWIGLANG=python SWIG_FEATURES=-builtin PY3=3 VER=3.6 SWIGOPTPY3=
+      env: SWIGLANG=python SWIG_FEATURES="-builtin -O" PY3=3 VER=3.7
+      sudo: required
+      dist: trusty
+    - compiler: gcc
+      os: linux
+      env: SWIGLANG=python SWIG_FEATURES=-builtin PY3=3 VER=3.7 SWIGOPTPY3=
       sudo: required
       dist: trusty
     - compiler: gcc
@@ -174,7 +219,7 @@ matrix:
       dist: trusty
     - compiler: gcc
       os: linux
-      env: SWIGLANG=python SWIG_FEATURES=-classic
+      env: SWIGLANG=python SWIG_FEATURES=-O PY3=3 VER=3.7
       sudo: required
       dist: trusty
     - compiler: gcc
@@ -276,7 +321,7 @@ matrix:
       sudo: required
       dist: trusty
     - os: linux
-      env: SWIGLANG=python SWIG_CC=gcc-8 SWIG_CXX=g++-8 CPP17=1 PY3=3 VER=3.6
+      env: SWIGLANG=python SWIG_CC=gcc-8 SWIG_CXX=g++-8 CPP17=1 PY3=3 VER=3.7
       sudo: required
       dist: trusty
     - compiler: gcc
@@ -317,6 +362,16 @@ matrix:
       env: SWIGLANG=tcl
 
   allow_failures:
+    # Deprecated functions causing build failure since upgrade from Node v10.11.0 to v10.12.0
+    - compiler: gcc
+      os: linux
+      env: SWIGLANG=javascript ENGINE=node VER=10 CPP11=1
+      sudo: required
+      dist: trusty
+    # 'brew upgrade python' failure due to conflicting files: c++
+    - compiler: clang
+      os: osx
+      env: SWIGLANG=python PY3=3
     # Lots of failing tests currently
     - compiler: gcc
       os: linux
@@ -329,12 +384,7 @@ matrix:
       env: SWIGLANG=octave SWIGJOBS=-j2 VER=4.4 CPP11=1
       sudo: required
       dist: trusty
-    # Not quite working yet
-    - compiler: gcc
-      os: linux
-      env: SWIGLANG=python SWIG_FEATURES=-O
-      sudo: required
-      dist: trusty
+
 before_install:
   - date -u
   - uname -a

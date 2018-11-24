@@ -246,6 +246,7 @@ CPP_TEST_CASES += \
 	friends \
 	friends_template \
 	funcptr_cpp \
+	functors \
 	fvirtual \
 	global_namespace \
 	global_ns_arg \
@@ -612,6 +613,7 @@ DOXYGEN_TEST_CASES += \
 	doxygen_basic_translate \
 	doxygen_ignore \
 	doxygen_misc_constructs \
+	doxygen_nested_class \
 	doxygen_parsing \
 	doxygen_parsing_enums \
 	doxygen_translate \

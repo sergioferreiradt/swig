@@ -151,7 +151,7 @@ swig_varlink_type(void) {
       PyObject_HEAD_INIT(NULL)
       0,                                  /* ob_size */
 #endif
-      (char *)"swigvarlink",              /* tp_name */
+      "swigvarlink",                      /* tp_name */
       sizeof(swig_varlinkobject),         /* tp_basicsize */
       0,                                  /* tp_itemsize */
       (destructor) swig_varlink_dealloc,  /* tp_dealloc */
@@ -208,14 +208,14 @@ SWIG_Python_newvarlink(void) {
 }
 
 SWIGINTERN void 
-SWIG_Python_addvarlink(PyObject *p, char *name, PyObject *(*get_attr)(void), int (*set_attr)(PyObject *p)) {
+SWIG_Python_addvarlink(PyObject *p, const char *name, PyObject *(*get_attr)(void), int (*set_attr)(PyObject *p)) {
   swig_varlinkobject *v = (swig_varlinkobject *) p;
   swig_globalvar *gv = (swig_globalvar *) malloc(sizeof(swig_globalvar));
   if (gv) {
     size_t size = strlen(name)+1;
     gv->name = (char *)malloc(size);
     if (gv->name) {
-      strncpy(gv->name,name,size);
+      memcpy(gv->name, name, size);
       gv->get_attr = get_attr;
       gv->set_attr = set_attr;
       gv->next = v->vars;
@@ -330,7 +330,7 @@ SWIG_init(void) {
 #if PY_VERSION_HEX >= 0x03000000
   static struct PyModuleDef SWIG_module = {
     PyModuleDef_HEAD_INIT,
-    (char *) SWIG_name,
+    SWIG_name,
     NULL,
     -1,
     SwigMethods,
@@ -347,8 +347,8 @@ SWIG_init(void) {
     (char *)"this", &SwigPyBuiltin_ThisClosure, NULL, NULL, NULL
   };
   static SwigPyGetSet thisown_getset_closure = {
-    (PyCFunction) SwigPyObject_own,
-    (PyCFunction) SwigPyObject_own
+    SwigPyObject_own,
+    SwigPyObject_own
   };
   static PyGetSetDef thisown_getset_def = {
     (char *)"thisown", SwigPyBuiltin_GetterClosure, SwigPyBuiltin_SetterClosure, NULL, &thisown_getset_closure
@@ -379,13 +379,21 @@ SWIG_init(void) {
   assert(metatype);
 #endif
 
+  /* Create singletons now to avoid potential deadlocks with multi-threaded usage after module initialization */
+  SWIG_This();
+  SWIG_Python_TypeCache();
+  SwigPyPacked_type();
+#ifndef SWIGPYTHON_BUILTIN
+  SwigPyObject_type();
+#endif
+
   /* Fix SwigMethods to carry the callback ptrs when needed */
   SWIG_Python_FixMethods(SwigMethods, swig_const_table, swig_types, swig_type_initial);
 
 #if PY_VERSION_HEX >= 0x03000000
   m = PyModule_Create(&SWIG_module);
 #else
-  m = Py_InitModule((char *) SWIG_name, SwigMethods);
+  m = Py_InitModule(SWIG_name, SwigMethods);
 #endif
 
   md = d = PyModule_GetDict(m);

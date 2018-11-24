@@ -7,6 +7,270 @@ the issue number to the end of the URL: https://github.com/swig/swig/issues/
 Version 4.0.0 (in progress)
 ===========================
 
+2018-11-24: vadz
+            #1358 Fix handling of abstract base classes nested inside templates
+
+            Correct detecting of whether a derived class method overrides a pure virtual
+            base class method when both classes are nested inside a template class: this
+            notably didn't work correctly for methods taking parameters of the base class
+            type.
+
+2018-11-22: rupertnash
+            [Python] #1282 Make generated module runnable via python -m (PEP 366 conforming)
+
+            Previously any SWIG generated modules in a package would fail with an ImportError
+            when using 'python -m'.
+
+2018-11-13: wsfulton
+            #1340 Remove -cppcast and -nocppcast command line options (this was an option
+            available to the scripting language targets).
+
+            The -cppcast option is still turned on by default. The -nocppcast option
+            to turn off the use of c++ casts (const_cast, static_cast etc) has been
+            removed. However, defining SWIG_NO_CPLUSPLUS_CAST will still generate C casts
+            instead of C++ casts for C++ wrappers.
+
+            *** POTENTIAL INCOMPATIBILITY ***
+
+2018-11-13: wsfulton
+            [Python] #1340 Remove -outputtuple and -nooutputtuple command line options.
+
+            Both the command line and %module options of the same name have been
+            removed. These were undocumented. The -outputtuple option returned a
+            Python tuple instead of a list, mostly typically in the OUTPUT
+            typemap implementations.
+
+            It unclear why a tuple instead of a list return type is needed and
+            hence this option has been removed as part of the simplification of
+            the SWIG Python command line options for SWIG 4.
+
+2018-11-13: wsfulton
+            [Python] #1340 Remove -noproxyimport command line option.
+
+            This option turned off the insertion of Python import statements
+            derived from a %import directive. For example given:
+
+              %module module_b
+              %import "module_a.i"
+
+            then module_b.py will contain:
+
+              import module_a
+
+            *** POTENTIAL INCOMPATIBILITY ***
+
+2018-10-29: AlexanderGabriel
+	    [PHP] The following PHP7 reserved keywords are now only renamed by
+	    SWIG when used as function names in the API being wrapper:
+	    __halt_compiler array die echo empty eval exit include include_once
+	    isset list print require require_once return unset
+
+2018-10-22: olly,wsfulton
+            [Python] #1261 #1340 Turn on many optimisation options by default and rationalise the
+            number of command line options.
+
+            There were an unnecessary number of command line options and many of these have now
+            been removed in a drive for simplification. Some were needed to support older versions
+            of Python (2.6 and earlier).
+
+            Many of the options could be turned on individually and when using -O. Previously -O
+            resulted in turning on a set of options:
+
+              -modern -fastdispatch -nosafecstrings -fvirtual -noproxydel
+              -fastproxy -fastinit -fastunpack -fastquery -modernargs -nobuildnone
+
+            Now -O results in turning on this reduced set:
+
+              -fastdispatch -fastproxy -fvirtual
+
+            The following options are now on by default, a deprecated warning is displayed if they
+            are used:
+              -fastinit     Class initialisation code done in C/C++ rather than in Python code.
+              -fastquery    Python dictionary used for lookup of types.
+              -fastunpack   Faster unpacking of function arguments in C/C++ wrappers.
+              -modern       Use Python 2.3 features such as object and property.
+              -modernargs   Use Python 2.3 C APIs for unpacking arguments in tuples.
+              -noproxydel   Stop generating a proxy __del__ method for backwards compatiblity.
+              -safecstrings No discernable difference
+
+            The following options have been removed altogether:
+              -aliasobj0
+              -buildnone
+              -classptr
+              -new_repr
+              -newrepr
+              -noaliasobj0
+              -nobuildnone
+              -nofastinit
+              -nofastquery
+              -nomodern
+              -nomodernargs
+              -nooutputtuple
+              -nosafecstrings
+              -old_repr
+              -oldrepr
+              -proxydel
+
+            -new_vwm is no longer supported. Use the -newvwm alias instead.
+
+            *** POTENTIAL INCOMPATIBILITY ***
+
+2018-10-22: olly
+            [Python] #1261 Remove command line option no longer needed as Python 2.3 and earlier
+            are no longer supported:
+
+              -classic
+
+2018-10-09: wsfulton
+            [D, Go, Guile, Lua, Mzscheme, Ocaml, Perl5, Php, Scilab, Tcl]
+            Allow wrapping of std::map using non-default comparison function.
+
+2018-10-09: vadz
+            [Java] #1274 Allow wrapping of std::map using non-default comparison function.
+
+2018-10-04: wsfulton
+            [Python] #1126 Fix C default arguments with -builtin and -fastunpack and -modernargs.
+            Problem occurred when there is just one (defaulted) parameter in the parameter list.
+
+2018-09-24: wsfulton
+            [Python] #1319 C++11 hash tables implementation is finished now (including for -builtin):
+              std::unordered_map
+              std::unordered_set
+              std::unordered_multimap
+              std::unordered_multiset
+
+2018-09-21: wsfulton
+            [Python] Fix when using -builtin and wrapping std::map, std::set, std::unordered_map or
+            std::unordered_set to ensure __contains__ is called. This is a wrapper for the STL
+            container's find method. Without it, Python will do its own slower sequence search.
+
+2018-09-19: wsfulton
+            [Python] Fix functors (wrapped as __call__) when using -builtin -modern -fastunpack.
+
+2018-09-02: andreas.gaeer,tkrasnukha
+            [Python] #1321 Fix assert in PyTuple_GET_SIZE in debug interpreter builds of python-3.7
+            when calling tp_new.
+
+2018-09-01: ChristopherHogan
+            [Guile] #1288 Fix garbage collection for guile >= 2.0.12.
+
+2018-08-31: wsfulton
+            [Python] #1319 C++11 hash tables support:
+              std::unordered_map
+              std::unordered_set
+              std::unordered_multimap
+              std::unordered_multiset
+            is now compiling and working (sorting using -builtin not fully functional yet though).
+
+2018-08-20: wkalinin
+            #1305 Fix nested structure symbol tables in C mode to fix member name conflicts
+            in different structs with the same nested struct member name.
+
+2018-08-18: wsfulton
+            [Python] #688 Fix makefile recursion when running python test-suite.
+
+2018-08-18: wsfulton
+            [Python] #1310 Re-implement Python -fastproxy option.
+
+            The previous implementation failed with Python 3 and abstract base clases.
+            The new implementation replaces the Python 2 implementation using
+            new.instancemethod with the C API PyMethod_New to match the equivalent Python 3
+            implementation which uses PyInstanceMethod_New.
+
+            The new approach runs slightly faster. See #1310.
+
+2018-08-12: gmazzamuto
+            [Python] #1283 Update pybuffer.i library to use new-style Python buffer C API.
+
+2018-08-12: brianhatwood,wsfulton
+            [Java] #1303 #1304 Fix crash in directors when using OUTPUT and INOUT typemaps in typemaps.i and
+            passing NULL pointers in C++ to director method overloaded and implemented in Java.
+
+2018-08-10: wsfulton
+            [Python] #1293 Improve TypeError message inconsistencies between default and fastdispatch
+            mode when handling overloaded C++ functions. Previously the error message did not always
+            display the possible C/C++ prototypes in fastdispatch mode.
+
+2018-08-02: furylynx,jacobwgillespie,p2k
+            [Javascript] #1290, #968. Add support for NodeJS versions 2-10.
+
+2018-07-31: wsfulton
+            [Python] #1293 Overloaded C++ function wrappers now raise a TypeError instead
+            of NotImplementedError when the types passed are incorrect. This change means
+            there is now consistency with non-overloaded function wrappers which have always
+            raised TypeError when the incorrect types are passed. The error message remains
+            the same and is for example now:
+
+              TypeError: Wrong number or type of arguments for overloaded function 'f'.
+                Possible C/C++ prototypes are:
+                  f(int)
+                  f(char const *)
+
+            instead of:
+
+              NotImplementedError: Wrong number or type of arguments for overloaded function 'f'.
+                Possible C/C++ prototypes are:
+                  f(int)
+                  f(char const *)
+
+            *** POTENTIAL INCOMPATIBILITY ***
+
+2018-06-23: wsfulton
+            [Python] #718 Fix pythonnondynamic feature for modern classes
+
+            Fixes nondynamic mode when an instance variable is set with the same
+            name as a class variable in a class derived from a SWIG proxy class.
+            This corner case set an instance variable instead of raising an AttributeError.
+
+            Also fix %pythonnondynamic in Python 3 with -modern. The metaclass
+            containing the implementation was previously not being applied in Python 3.
+
+2018-07-17: petrmitrichev,wsfulton
+            [Python] #1275 #1279 Initialize function-local statics (singletons) that call Python
+            code during Python module initialization in order to avoid deadlocks with subsequent
+            multi-threaded usage.
+
+2018-06-15: wsfulton
+            [Python] Fix seg fault using Python 2 when passing a Python string, containing
+            invalid utf-8 content, to a wstring or wchar * parameter. A TypeError is thrown instead, eg:
+
+              %include <std_wstring.i>
+              void instring(const std::wstring& s);
+
+              instring(b"h\xe9llooo") # Python
+
+2018-06-15: wsfulton
+            [Python] Python 3.7 support: Replace use of deprecated PyUnicode_GetSize with
+            PyUnicode_GetLength to remove deprecated warnings compiling the C/C++ wrappers.
+
+2018-06-12: wsfulton
+            [Python] Python 3.7 support: The %pythonabc feature in pyabc.i now uses base classes
+              collections.abc.MutableSequence
+              collections.abc.MutableMapping
+              collections.abc.MutableSet
+            instead of
+              collections.MutableSequence
+              collections.MutableMapping
+              collections.MutableSet
+            as the latter are deprecated in Python 3.7 and are due to be removed in Python 3.8.
+            The classes in collections.abc.* are available from Python 3.3 onwards. If you
+            require support for Python 3.2, then copy the pyabc.i file and modify by removing
+            the few instances of the .abc sub-module.
+
+            *** POTENTIAL INCOMPATIBILITY ***
+
+2018-06-12: olly,wsfulton
+            [Python] #701 Remove support for Python versions < 2.7 and 3.0 and 3.1.
+
+            *** POTENTIAL INCOMPATIBILITY ***
+
+2018-06-11: olly
+            [Python] Fix new GCC8 warnings in generated code by avoiding casts
+            between incompatible function types where possible (when keyword
+            args are in use, it is not possible to avoid such warnings as they
+            are inherent in the design of Python's C API in that particular
+            case).  Fixes #1259.
+
 2018-06-08: philippkraft
 	    [Python] Stop exposing <CLASS>_swigregister to Python.  It's not
 	    useful for user Python code to call this, and it just clutters the
@@ -22,11 +286,15 @@ Version 4.0.0 (in progress)
 	    deprecated back in 2008.  Use %pragma(php) instead, which has been
 	    supported since at least 2005.
 
+            *** POTENTIAL INCOMPATIBILITY ***
+
 2018-06-07: olly
 	    [PHP5] Support for PHP5 has been removed.  PHP5 is no longer
 	    actively supported by the PHP developers and security support for
 	    it ends completely at the end of 2018, so it doesn't make sense
 	    to include support for it in the upcoming SWIG 4.0.0 release.
+
+            *** POTENTIAL INCOMPATIBILITY ***
 
 2018-06-06: olly
 	    [Lua] Improve configure probes for Lua headers and libs used in testsuite.
@@ -118,6 +386,8 @@ Version 4.0.0 (in progress)
               #define ABC 123
               #endif
 
+            *** POTENTIAL INCOMPATIBILITY ***
+
 2018-01-15: wsfulton
             Fix issue #1183. Floating point exception evaluating preprocessor expressions
             resulting in division by zero.
@@ -173,6 +443,8 @@ Version 4.0.0 (in progress)
 
             Deprecate Swig::DirectorException::raiseJavaException, please replace usage with
             Swig::DirectorException::throwException.
+
+            *** POTENTIAL INCOMPATIBILITY ***
 
 2017-10-26: wsfulton
             Add support for C++11 ref-qualifiers when using directors.
@@ -619,6 +891,7 @@ Version 4.0.0 (in progress)
 2017-05-26: Volker Diels-Grabsch, vadz
             [Java] #842 Extend from java.util.AbstractList<> and implement java.util.RandomAccess for
             std::vector wrappers. This notably allows to iterate over wrapped vectors in a natural way.
+
 2017-05-30: davidcl
             [Scilab] #994 Undefined symbol error when loading in Scilab 6
 
