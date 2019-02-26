@@ -96,6 +96,11 @@ matrix:
       dist: trusty
     - compiler: gcc
       os: linux
+      env: SWIGLANG=mzscheme
+      sudo: required
+      dist: trusty
+    - compiler: gcc
+      os: linux
       env: SWIGLANG=ocaml
       sudo: required
       dist: trusty
@@ -132,6 +137,16 @@ matrix:
     - compiler: gcc
       os: linux
       env: SWIGLANG=php VER=7.1
+      sudo: required
+      dist: trusty
+    - compiler: gcc
+      os: linux
+      env: SWIGLANG=php VER=7.2
+      sudo: required
+      dist: trusty
+    - compiler: gcc
+      os: linux
+      env: SWIGLANG=php VER=7.3
       sudo: required
       dist: trusty
     - compiler: gcc
@@ -368,20 +383,21 @@ matrix:
       env: SWIGLANG=javascript ENGINE=node VER=10 CPP11=1
       sudo: required
       dist: trusty
-    # 'brew upgrade python' failure due to conflicting files: c++
-    - compiler: clang
-      os: osx
-      env: SWIGLANG=python PY3=3
-    # Lots of failing tests currently
-    - compiler: gcc
-      os: linux
-      env: SWIGLANG=ocaml
-      sudo: required
-      dist: trusty
     # Sometimes hits the Travis 50 minute time limit
     - compiler: gcc
       os: linux
       env: SWIGLANG=octave SWIGJOBS=-j2 VER=4.4 CPP11=1
+      sudo: required
+      dist: trusty
+    # Experimental languages
+    - compiler: gcc
+      os: linux
+      env: SWIGLANG=mzscheme
+      sudo: required
+      dist: trusty
+    - compiler: gcc
+      os: linux
+      env: SWIGLANG=ocaml
       sudo: required
       dist: trusty
 

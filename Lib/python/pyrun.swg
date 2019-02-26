@@ -736,20 +736,6 @@ typedef struct {
   size_t size;
 } SwigPyPacked;
 
-SWIGRUNTIME int
-SwigPyPacked_print(SwigPyPacked *v, FILE *fp, int SWIGUNUSEDPARM(flags))
-{
-  char result[SWIG_BUFFER_SIZE];
-  fputs("<Swig Packed ", fp); 
-  if (SWIG_PackDataName(result, v->pack, v->size, 0, sizeof(result))) {
-    fputs("at ", fp); 
-    fputs(result, fp); 
-  }
-  fputs(v->ty->name,fp); 
-  fputs(">", fp);
-  return 0; 
-}
-  
 SWIGRUNTIME PyObject *
 SwigPyPacked_repr(SwigPyPacked *v)
 {
@@ -822,7 +808,7 @@ SwigPyPacked_TypeOnce(void) {
       sizeof(SwigPyPacked),                 /* tp_basicsize */
       0,                                    /* tp_itemsize */
       (destructor)SwigPyPacked_dealloc,     /* tp_dealloc */
-      (printfunc)SwigPyPacked_print,        /* tp_print */
+      0,                                    /* tp_print */
       (getattrfunc)0,                       /* tp_getattr */
       (setattrfunc)0,                       /* tp_setattr */
 #if PY_VERSION_HEX>=0x03000000
@@ -1032,7 +1018,7 @@ SWIG_Python_ConvertPtrAndOwn(PyObject *obj, void **ptr, swig_type_info *ty, int 
   if (obj == Py_None && !implicit_conv) {
     if (ptr)
       *ptr = 0;
-    return SWIG_OK;
+    return (flags & SWIG_POINTER_NO_NULL) ? SWIG_NullReferenceError : SWIG_OK;
   }
 
   res = SWIG_ERROR;
@@ -1112,13 +1098,13 @@ SWIG_Python_ConvertPtrAndOwn(PyObject *obj, void **ptr, swig_type_info *ty, int 
           }
         }
       }
-    }
-    if (!SWIG_IsOK(res) && obj == Py_None) {
-      if (ptr)
-        *ptr = 0;
-      if (PyErr_Occurred())
-        PyErr_Clear();
-      res = SWIG_OK;
+      if (!SWIG_IsOK(res) && obj == Py_None) {
+        if (ptr)
+          *ptr = 0;
+        if (PyErr_Occurred())
+          PyErr_Clear();
+        res = SWIG_OK;
+      }
     }
   }
   return res;
@@ -1205,12 +1191,16 @@ SWIG_Python_NewShadowInstance(SwigPyClientData *data, PyObject *swig_this)
 #if PY_VERSION_HEX >= 0x03000000
     PyObject *empty_args = PyTuple_New(0);
     if (empty_args) {
-      inst = ((PyTypeObject *)data->newargs)->tp_new((PyTypeObject *)data->newargs, empty_args, Py_None);
-      Py_DECREF(empty_args);
-      if (inst) {
-        PyObject_SetAttr(inst, SWIG_This(), swig_this);
-        Py_TYPE(inst)->tp_flags &= ~Py_TPFLAGS_VALID_VERSION_TAG;
+      PyObject *empty_kwargs = PyDict_New();
+      if (empty_kwargs) {
+        inst = ((PyTypeObject *)data->newargs)->tp_new((PyTypeObject *)data->newargs, empty_args, empty_kwargs);
+        Py_DECREF(empty_kwargs);
+        if (inst) {
+          PyObject_SetAttr(inst, SWIG_This(), swig_this);
+          Py_TYPE(inst)->tp_flags &= ~Py_TPFLAGS_VALID_VERSION_TAG;
+        }
       }
+      Py_DECREF(empty_args);
     }
 #else
     PyObject *dict = PyDict_New();
