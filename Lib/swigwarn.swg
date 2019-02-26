@@ -23,6 +23,8 @@
  * Even though symbolic constants are used in the SWIG source, this is
  * not always the case in SWIG interface files.  Do not change the
  * numbers in this file.
+ *
+ * This file is used as the input for generating Lib/swigwarn.swg.
  * ----------------------------------------------------------------------------- */
 
 
@@ -211,6 +213,7 @@
 %define SWIGWARN_LANG_ILLEGAL_DESTRUCTOR 521 %enddef
 %define SWIGWARN_LANG_EXTEND_CONSTRUCTOR 522 %enddef
 %define SWIGWARN_LANG_EXTEND_DESTRUCTOR 523 %enddef
+%define SWIGWARN_LANG_EXPERIMENTAL 524 %enddef
 
 /* -- Doxygen comments -- */
 
