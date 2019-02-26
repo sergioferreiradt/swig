@@ -57,7 +57,6 @@ swig_SOURCES =	CParse/cscanner.c		\
 		Modules/lua.cxx			\
 		Modules/main.cxx		\
 		Modules/modula3.cxx		\
-		Modules/module.cxx		\
 		Modules/mzscheme.cxx		\
 		Modules/nested.cxx		\
 		Modules/ocaml.cxx		\
