@@ -7,6 +7,38 @@ the issue number to the end of the URL: https://github.com/swig/swig/issues/
 Version 4.0.0 (in progress)
 ===========================
 
+2019-03-12: vadz
+            [C#] #1495 Add std_set.i for std::set support.
+
+2019-03-11: dirteat,opoplawski
+            [Octave] Fix compilation errors in Octave 5.1.
+
+              error: format not a string literal and no format arguments [-Werror=format-security]
+
+2019-02-28: wsfulton
+            [Java] std::vector improvements for types that do not have a default constructor.
+
+            The std::vector wrappers have been changed to work by default for elements that are
+            not default insertable, i.e. have no default constructor. This has been achieved by
+            not wrapping:
+
+              vector(size_type n);
+
+            Previously the above had to be ignored via %ignore.
+
+            If the above constructor is still required it can be added back in again via %extend:
+
+              %extend std::vector {
+                vector(size_type count) { return new std::vector< T >(count); }
+              }
+
+            Alternatively, the following wrapped constructor could be used as it provides near-enough
+            equivalent functionality:
+
+              vector(jint count, const value_type& value);
+
+            *** POTENTIAL INCOMPATIBILITY ***
+
 2019-02-25: wsfulton
             [Python] Fix compile errors wrapping overloaded functions/constructors where a vararg
             function is declared after a non-vararg function.
@@ -23,8 +55,14 @@ Version 4.0.0 (in progress)
 2019-02-22: tamuratak
             #984 Add support for RTypedData introduced in Ruby 1.9.3.
 
+2019-02-22: ZackerySpytz
+            #1483 Fix compilation failures when a director class has final methods.
+
 2019-02-21: wsfulton
             #1240 Suppress Java 9 deprecation warnings on finalize method.
+
+2019-02-21: ZackerySpytz
+            #1480 Fix some rejections of valid floating-point literals.
 
 2019-02-19: wsfulton
             #1475 Fix regression parsing gcc preprocessor linemarkers in the form:

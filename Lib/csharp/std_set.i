@@ -1,9 +1,13 @@
 /* -----------------------------------------------------------------------------
- * std_map.i
+ * std_set.i
  *
- * SWIG typemaps for std::set<T>
+ * SWIG typemaps for std::set<T>.
  *
- * The C# wrapper is made to look and feel like a C# System.Collections.Generic.HashSet<>.
+ * Note that ISet<> used here requires .NET 4 or later.
+ *
+ * The C# wrapper implements ISet<> interface and shares performance
+ * characteristics of C# System.Collections.Generic.SortedSet<> class, but
+ * doesn't provide quite all of its methods.
  * ----------------------------------------------------------------------------- */
 
 %{
@@ -71,16 +75,84 @@ class set {
     }
   }
 
-  public void ExceptWith(global::System.Collections.Generic.IEnumerable<$typemap(cstype, T)> other) { throw new global::System.Exception("TODO"); }
-  public void IntersectWith(global::System.Collections.Generic.IEnumerable<$typemap(cstype, T)> other) { throw new global::System.Exception("TODO"); }
-  public bool IsProperSubsetOf(global::System.Collections.Generic.IEnumerable<$typemap(cstype, T)> other) { throw new global::System.Exception("TODO"); }
-  public bool IsProperSupersetOf(global::System.Collections.Generic.IEnumerable<$typemap(cstype, T)> other) { throw new global::System.Exception("TODO"); }
-  public bool IsSubsetOf(global::System.Collections.Generic.IEnumerable<$typemap(cstype, T)> other) { throw new global::System.Exception("TODO"); }
-  public bool IsSupersetOf(global::System.Collections.Generic.IEnumerable<$typemap(cstype, T)> other) { throw new global::System.Exception("TODO"); }
-  public bool Overlaps(global::System.Collections.Generic.IEnumerable<$typemap(cstype, T)> other) { throw new global::System.Exception("TODO"); }
-  public bool SetEquals(global::System.Collections.Generic.IEnumerable<$typemap(cstype, T)> other) { throw new global::System.Exception("TODO"); }
-  public void SymmetricExceptWith(global::System.Collections.Generic.IEnumerable<$typemap(cstype, T)> other) { throw new global::System.Exception("TODO"); }
-  public void UnionWith(global::System.Collections.Generic.IEnumerable<$typemap(cstype, T)> other) { throw new global::System.Exception("TODO"); }
+  public void ExceptWith(global::System.Collections.Generic.IEnumerable<$typemap(cstype, T)> other) {
+    foreach ($typemap(cstype, T) item in other) {
+      Remove(item);
+    }
+  }
+
+  public void IntersectWith(global::System.Collections.Generic.IEnumerable<$typemap(cstype, T)> other) {
+    $csclassname old = new $csclassname(this);
+
+    Clear();
+    foreach ($typemap(cstype, T) item in other) {
+      if (old.Contains(item))
+        Add(item);
+    }
+  }
+
+  private static int count_enum(global::System.Collections.Generic.IEnumerable<$typemap(cstype, T)> other) {
+    int count = 0;
+    foreach ($typemap(cstype, T) item in other) {
+      count++;
+    }
+
+    return count;
+  }
+
+  public bool IsProperSubsetOf(global::System.Collections.Generic.IEnumerable<$typemap(cstype, T)> other) {
+    return IsSubsetOf(other) && Count < count_enum(other);
+  }
+
+  public bool IsProperSupersetOf(global::System.Collections.Generic.IEnumerable<$typemap(cstype, T)> other) {
+    return IsSupersetOf(other) && Count > count_enum(other);
+  }
+
+  public bool IsSubsetOf(global::System.Collections.Generic.IEnumerable<$typemap(cstype, T)> other) {
+    int countContained = 0;
+
+    foreach ($typemap(cstype, T) item in other) {
+      if (Contains(item))
+        countContained++;
+    }
+
+    return countContained == Count;
+  }
+
+  public bool IsSupersetOf(global::System.Collections.Generic.IEnumerable<$typemap(cstype, T)> other) {
+    foreach ($typemap(cstype, T) item in other) {
+      if (!Contains(item))
+        return false;
+    }
+
+    return true;
+  }
+
+  public bool Overlaps(global::System.Collections.Generic.IEnumerable<$typemap(cstype, T)> other) {
+    foreach ($typemap(cstype, T) item in other) {
+      if (Contains(item))
+        return true;
+    }
+
+    return false;
+  }
+
+  public bool SetEquals(global::System.Collections.Generic.IEnumerable<$typemap(cstype, T)> other) {
+    return IsSupersetOf(other) && Count == count_enum(other);
+  }
+
+  public void SymmetricExceptWith(global::System.Collections.Generic.IEnumerable<$typemap(cstype, T)> other) {
+    foreach ($typemap(cstype, T) item in other) {
+      if (!Remove(item))
+        Add(item);
+    }
+  }
+
+  public void UnionWith(global::System.Collections.Generic.IEnumerable<$typemap(cstype, T)> other) {
+    foreach ($typemap(cstype, T) item in other) {
+      Add(item);
+    }
+  }
 
   private global::System.Collections.Generic.ICollection<$typemap(cstype, T)> Items {
     get {
