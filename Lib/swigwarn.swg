@@ -214,6 +214,7 @@
 %define SWIGWARN_LANG_EXTEND_CONSTRUCTOR 522 %enddef
 %define SWIGWARN_LANG_EXTEND_DESTRUCTOR 523 %enddef
 %define SWIGWARN_LANG_EXPERIMENTAL 524 %enddef
+%define SWIGWARN_LANG_DIRECTOR_FINAL 525 %enddef
 
 /* -- Doxygen comments -- */
 
