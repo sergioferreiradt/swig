@@ -7,6 +7,52 @@ the issue number to the end of the URL: https://github.com/swig/swig/issues/
 Version 4.0.0 (in progress)
 ===========================
 
+2019-04-09: wsfulton
+            [C#] Fix FxCop warning CA2002 in SWIGPendingException - a lock on a reference of
+            type 'Type'.
+
+2019-03-30: wsfulton
+            [Java, D] Add the parameters typemap attribute to the javadestruct,
+            javadestruct_derived, ddispose, ddispose_derived typemaps to mirror enhanced
+            flexibility in the csdisposing and csdisposing_derived (C#) typemaps. If provided
+            the contents are generated as the delete/dispose method's parameters declaration.
+
+2019-03-30: wsfulton
+            [C#] #421 Fix FxCop warning CA1063 by implementing the recommended Dispose methods for
+            the IDisposable interface. Previously just the Dispose() method was generated.
+            Now the Dispose() and Dispose(bool disposing) methods are generated.
+            Changes are required if custom "csfinalize", "csdestruct" or "csdestruct_derived"
+            typemaps are being used. Details in #421 on Github. SWIG will error out if one of
+            the "csfinalize, "csdestruct" or "csdestruct_derived" typemaps are found. Example
+            error message:
+
+              foo.h:60: Error: A deprecated csfinalize typemap was found for Foo, please remove
+              it and replace all csdestruct, csdestruct_derived and csfinalize typemaps by the
+              csdispose, csdispose_derived, csdisposing and csdisposing_derived typemaps.
+
+            *** POTENTIAL INCOMPATIBILITY ***
+
+2019-03-25: Liryna
+            [C#] #1143 Add std_list.i for std::list support.
+            The C# std::list<T> wrappers are made to look and feel like a C# 
+            System.Collections.Generic.LinkedList<> collection.
+            The IEnumerable<> interface is implemented in the proxy class.
+            The ICollection<> interface can also be implemented to provide enhanced functionality
+            whenever a C++ operator== is available. This is the case for when T is a
+            primitive type or a pointer. If T does define an operator==, then use the
+            SWIG_STD_LIST_ENHANCED macro to obtain this enhanced functionality, for example:
+
+              SWIG_STD_LIST_ENHANCED(SomeNamespace::Klass)
+              %template(ListKlass) std::list<SomeNamespace::Klass>;
+
+2019-03-18: richardbeare
+            [R] #1328 Non-trivial enums are working now. The enum values are now obtained from
+            the C/C++ layer. const reference enums and C++11 enum classes are also now working.
+
+2019-03-14: mochizk
+            [Javascript] #1500 Fix compilation errors due to deprecating V8 API in Node.js.
+            New V8 API is used if node.js >= v10.12, or if V8 >= v7.0.
+
 2019-03-12: vadz
             [C#] #1495 Add std_set.i for std::set support.
 
@@ -53,13 +99,13 @@ Version 4.0.0 (in progress)
             string.
 
 2019-02-22: tamuratak
-            #984 Add support for RTypedData introduced in Ruby 1.9.3.
+            [Ruby] #984 Add support for RTypedData introduced in Ruby 1.9.3.
 
 2019-02-22: ZackerySpytz
             #1483 Fix compilation failures when a director class has final methods.
 
 2019-02-21: wsfulton
-            #1240 Suppress Java 9 deprecation warnings on finalize method.
+            [Java] #1240 Suppress Java 9 deprecation warnings on finalize method.
 
 2019-02-21: ZackerySpytz
             #1480 Fix some rejections of valid floating-point literals.
@@ -887,7 +933,7 @@ Version 4.0.0 (in progress)
             u"\udcff" to the C layer (Python 3).
 
 2017-11-24: joequant
-	    Fix #1124 and return R_NilValue for null pointers
+	    [R] Fix #1124 and return R_NilValue for null pointers
 
 2017-11-29: wsfulton
             [Java] director exception handling improvements.
@@ -932,7 +978,7 @@ Version 4.0.0 (in progress)
 
 2017-10-07: olly
 	    Fix preprocessor handling of empty macro arguments to match that of
-	    C/C++ compilers.  Fixes https://github.com/swig/swig/pull/1111 and
+	    C/C++ compilers.  Fixes issue #1111 and
 	    https://sourceforge.net/p/swig/bugs/826/
 
 2017-10-06: wsfulton
@@ -953,7 +999,7 @@ Version 4.0.0 (in progress)
 2017-10-01: joequant
             allow R package names with docs
 	    allowing multiple get accessors in R
-	    fix smrt-pointer and NAMESPACE support
+	    fix smart-pointer and NAMESPACE support
 	    constructors now returning smart pointers (if class
 	    declared as such)
 	    smart-pointer classes deriving from parent smart-pointers
@@ -1213,8 +1259,7 @@ Version 4.0.0 (in progress)
 
 2017-08-05: olly
 	    [C++11] Allow static_assert at the top level (and disallow it right
-	    after template<T>).  Fixes https://github.com/swig/swig/issues/1031
-	    reported by Artem V L.
+	    after template<T>).  Fixes issue 1031 reported by Artem V L.
 
 2017-08-02: wsfulton
             Fix incorrectly shown warning when an empty template instantiation was used on a
@@ -1318,8 +1363,7 @@ Version 4.0.0 (in progress)
 2017-06-13: olly
 	    [Perl] Fix testsuite to work without . in @INC - it was removed in
 	    Perl 5.26 for security reasons, and has also been removed from
-	    older versions in some distros.  Fixes
-	    https://github.com/swig/swig/issues/997 reported by lfam.
+	    older versions in some distros.  Fixes #997 reported by lfam.
 
 2017-06-03: wsfulton
             Fix %import on a file containing a file scope %fragment forced inclusion to not
