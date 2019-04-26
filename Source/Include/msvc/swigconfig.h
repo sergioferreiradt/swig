@@ -83,7 +83,11 @@
 #define SWIG_LIB_WIN_UNIX ""
 
 /* Platform that SWIG is built for */
+#ifdef _WIN64
+#define SWIG_PLATFORM "Win64"
+#else
 #define SWIG_PLATFORM "Win32"
+#endif
 
 /* Version number of package */
 #define VERSION "4.0.0-beta1-55-gcb459bd"
