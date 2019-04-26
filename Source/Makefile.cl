@@ -6,15 +6,15 @@
 all: swig.exe
 
 ifdef DEBUG
-    swig_CFLAGS := -Zi -D_DEBUG
+    swig_CFLAGS := -Zi -D_DEBUG /MTd
 else
-    swig_CFLAGS := -DNDEBUG -O2 -GL
+    swig_CFLAGS := -DNDEBUG -O2 -GL /MT
 endif
 
-swig_CFLAGS += /EHsc
+swig_CFLAGS += /EHsc /DPCRE_STATIC
 
 swig_INCLUDES := -IInclude/msvc -IInclude -ICParse -IPreprocessor -IDoh -IModules -IDoxygen -ISwig
-swig_LIBS := pcre3.lib
+swig_LIBS := pcre.lib
 
 swig_HEADERS = Include/swigwarn.h		\
 		Include/msvc/swigconfig.h	\
