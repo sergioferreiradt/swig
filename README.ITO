@@ -1,0 +1,23 @@
+This directory contains sources and binaries of SWIG (http://www.swig.org)
+
+The master branch is the unmodified master from the upstream repository
+(https://github.com/swig/swig), but the current branch is the "ito" one,
+containing our changes to SWIG, if any (there used to be quite a few, but
+as of 2019-04-26 they have been all merged upstream) and the extra files
+allowing to build SWIG with MSVC as well as pre-built binaries for Win64
+and Linux x86_64.
+
+To rebuild these binaries:
+
+1. Under Linux, just use the usual `configure && make` build process, the
+   only non-trivial requirement is libpcre-dev package. 
+
+2. Under MSW, you need to first build libpcre:
+ (a) Use CMake to generate MSVS projects for it.
+ (b) Edit the projects to use /MT instead of /MD.
+ (c) Build `pcre.lib`.
+ (d) Copy `pcre.h` and `pcre.lib` to Source subdirectory.
+
+ Next build SWIG itself:
+ (e) From MSVS tools command prompt do `make -f Makefile.cl`, the resulting
+     binary will be in Source subdirectory.
