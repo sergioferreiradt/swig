@@ -1058,23 +1058,33 @@ if test -n "$OCTAVE"; then
    AS_IF([test "x`${OCTAVE} --version 2>/dev/null | sed -n -e '1p' | sed -n -e '/Octave, version/p'`" != x],[
       AC_MSG_RESULT([yes])
    ],[
-      AC_MSG_NOTICE([no, disabling Octave])
+      AC_MSG_NOTICE([no])
       OCTAVE=
    ])
 fi
 
 # Check for required Octave helper program "mkoctfile"
 if test -n "$OCTAVE"; then
-   AC_MSG_CHECKING([for mkoctfile])
-   mkoctfile=["`echo $OCTAVE | sed -e 's|[a-z][a-z-]*$|mkoctfile|;t;s|[a-z][a-z-]*\(-[0-9][0-9.+]*\)$|mkoctfile\1|;t'`"]
-   AC_MSG_RESULT([${mkoctfile}])
-   AC_MSG_CHECKING([if ${mkoctfile} works])
-   AS_IF([test "x`${mkoctfile} --version 2>/dev/null | sed -n -e '1p' | sed -n -e '/mkoctfile, version/p'`" != x],[
+  AC_MSG_CHECKING([for mkoctfile])
+  version_suffix=["`echo $OCTAVE | sed -e 's|.*\(-[0-9][0-9.]*\)$|\1|'`"]
+  case $version_suffix in
+    -*) ;;
+    *) version_suffix="" ;;
+  esac
+  octave_directory=`dirname $OCTAVE`
+  if test "$octave_directory" = "." ; then
+    mkoctfile="mkoctfile${version_suffix}"
+  else
+    mkoctfile="${octave_directory}/mkoctfile${version_suffix}"
+  fi
+  AC_MSG_RESULT([${mkoctfile}])
+  AC_MSG_CHECKING([if ${mkoctfile} works])
+  AS_IF([test "x`${mkoctfile} --version 2>/dev/null | sed -n -e '1p' | sed -n -e '/mkoctfile, version/p'`" != x],[
       AC_MSG_RESULT([yes])
-   ],[
-      AC_MSG_NOTICE([no, disabling Octave])
+    ],[
+      AC_MSG_RESULT([no])
       OCTAVE=
-   ])
+    ])
 fi
 
 # Check for Octave preprocessor/compiler/linker flags
@@ -1114,7 +1124,10 @@ if test -n "$OCTAVE"; then
 
    AC_MSG_CHECKING([for Octave linker flags])
    OCTAVE_LDFLAGS=
-   for var in RDYNAMIC_FLAG LFLAGS RLD_FLAG OCTAVE_LIBS LIBS; do
+   for var in OCTLIBDIR; do
+     OCTAVE_LDFLAGS="${OCTAVE_LDFLAGS} "-L`env - ${mkoctfile} -p ${var}`
+   done
+   for var in RDYNAMIC_FLAG RLD_FLAG OCTAVE_LIBS LIBS; do
      OCTAVE_LDFLAGS="${OCTAVE_LDFLAGS} "`env - ${mkoctfile} -p ${var}`
    done
    AC_MSG_RESULT([$OCTAVE_LDFLAGS])
@@ -2044,6 +2057,16 @@ if test x"${with_ocaml}" = xno; then
     AC_MSG_NOTICE([Disabling OCaml])
     OCAMLC=
 else
+    # OCaml compiler
+    if test -z "$OCAMLC"; then
+	AC_CHECK_PROGS(OCAMLC, ocamlc)
+    fi
+
+    # OCaml Pre-Processor-Pretty-Printer
+    if test -z "$CAMLP4"; then
+	AC_CHECK_PROGS(CAMLP4, camlp4)
+    fi
+
     # OCaml DL load generator
     if test -z "$OCAMLDLGEN"; then
 	AC_CHECK_PROGS(OCAMLDLGEN, ocamldlgen)
@@ -2054,27 +2077,17 @@ else
 	AC_CHECK_PROGS(OCAMLFIND, ocamlfind)
     fi
 
-    # OCaml compiler
-    if test -z "$OCAMLC"; then
-	AC_CHECK_PROGS(OCAMLC, ocamlc)
-    fi
-
     # OCaml toplevel creator
     if test -z "$OCAMLMKTOP"; then
 	AC_CHECK_PROGS(OCAMLMKTOP, ocamlmktop)
     fi
-
-    # OCaml Pre-Processor-Pretty-Printer
-    if test -z "$CAMLP4"; then
-	AC_CHECK_PROGS(CAMLP4, camlp4)
-    fi
 fi
 
 AC_SUBST(OCAMLC)
+AC_SUBST(CAMLP4)
 AC_SUBST(OCAMLDLGEN)
 AC_SUBST(OCAMLFIND)
 AC_SUBST(OCAMLMKTOP)
-AC_SUBST(CAMLP4)
 
 #----------------------------------------------------------------
 # Look for C#
@@ -2636,7 +2649,7 @@ AC_SUBST(SKIP_PHP)
 
 
 SKIP_OCAML=
-if test -z "$OCAMLC" ; then
+if test -z "$OCAMLC" || test -z "$CAMLP4" ; then
     SKIP_OCAML="1"
 fi
 AC_SUBST(SKIP_OCAML)

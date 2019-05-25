@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Install MacOS packages where the version has been overidden in .travis.yml
+
 set -e # exit on failure (same as -o errexit)
 
 sw_vers
@@ -19,6 +21,9 @@ case "$SWIGLANG" in
 		;;
 	"lua")
 		travis_retry brew install lua
+		;;
+	"octave")
+		travis_retry brew install octave
 		;;
 	"python")
 		WITHLANG=$SWIGLANG$PY3
