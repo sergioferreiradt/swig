@@ -58,13 +58,13 @@
 #define PACKAGE_NAME "swig"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "swig 4.0.0-beta1-55-gcb459bd"
+#define PACKAGE_STRING "swig 4.0.0-72-gf2de1b8"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "swig"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "4.0.0-beta1-55-gcb459bd"
+#define PACKAGE_VERSION "4.0.0-72-gf2de1b8"
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
@@ -90,7 +90,7 @@
 #endif
 
 /* Version number of package */
-#define VERSION "4.0.0-beta1-55-gcb459bd"
+#define VERSION "4.0.0-72-gf2de1b8"
 
 
 /* Default language */
