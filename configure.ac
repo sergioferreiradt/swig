@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script.
 dnl The macros which aren't shipped with the autotools are stored in the
 dnl Tools/config directory in .m4 files.
 
-AC_INIT([swig],[4.0.0-72-gf2de1b8],[http://www.swig.org])
+AC_INIT([swig],[4.0.2],[http://www.swig.org])
 AC_PREREQ(2.60)
 
 AC_CONFIG_SRCDIR([Source/Swig/swig.h])
@@ -1348,6 +1348,33 @@ else
   JAVAC="$JAVACBIN"
 fi
 
+# Check Java version: we require Java 9 or later for Doxygen tests.
+if test -n "$JAVAC"; then
+    AC_MSG_CHECKING(if java version is 9 or greater)
+    javac_version=`"$JAVAC" -version 2>&1`
+    java_version_num=`echo $javac_version | sed -n 's/^javac //p'`
+    if test -z "$java_version_num"; then
+        AC_MSG_WARN([unknown format for Java version returned by "$JAVAC" ($javac_version)])
+        JAVA_SKIP_DOXYGEN_TEST_CASES=1
+        AC_MSG_RESULT(unknown)
+    else
+        dnl Until Java 8 version number was in format "1.x", starting from
+        dnl Java 9 it's just "x".
+        case $java_version_num in
+            1.*)
+                JAVA_SKIP_DOXYGEN_TEST_CASES=1
+                AC_MSG_RESULT([no, disabling Doxygen tests])
+                ;;
+
+            *)
+                AC_MSG_RESULT(yes)
+                ;;
+        esac
+    fi
+
+    AC_SUBST(JAVA_SKIP_DOXYGEN_TEST_CASES)
+fi
+
 AC_MSG_CHECKING(for java include file jni.h)
 AC_ARG_WITH(javaincl, [  --with-javaincl=path    Set location of Java include directory], [JAVAINCDIR="$withval"], [JAVAINCDIR=])
 
@@ -1406,15 +1433,6 @@ if test -z "$JAVA_HOME" && test -n "$JAVA_HOME_MAYBE" ; then
   else
     AC_MSG_RESULT(not found)
   fi
-fi
-
-# Javadoc support required for the Java test-suite is available by default in jdk9+ and in tools.jar in earlier jdk versions
-AC_MSG_CHECKING(for java tools.jar)
-if test -n "$JAVA_HOME" && test -r "$JAVA_HOME/lib/tools.jar" ; then
-  JAVA_TOOLS_JAR="$JAVA_HOME/lib/tools.jar"
-  AC_MSG_RESULT([$JAVA_TOOLS_JAR])
-else
-  AC_MSG_RESULT(not found)
 fi
 
 case $host in
@@ -1483,7 +1501,6 @@ AC_SUBST(JAVA)
 AC_SUBST(JAVAC)
 AC_SUBST(JAVAINC)
 AC_SUBST(JAVA_CLASSPATH_SEP)
-AC_SUBST(JAVA_TOOLS_JAR)
 AC_SUBST(JAVADYNAMICLINKING)
 AC_SUBST(JAVALIBRARYPREFIX)
 AC_SUBST(JAVASO)
@@ -2370,11 +2387,6 @@ AS_HELP_STRING([--with-go=path], [Set location of Go compiler]),[GOBIN="$withval
 if test x"${GOBIN}" = xno; then
   AC_MSG_NOTICE([Disabling Go])
   GO=
-  GOC=
-  GO1=false
-  GO12=false
-  GO13=false
-  GO15=false
   GOGCC=false
   GCCGO=
   GOOPT=
@@ -2390,30 +2402,17 @@ else
 
   GOGCC=false
   GCCGO=
-  GO1=false
-  GO12=false
-  GO13=false
-  GO15=false
   GOOPT=
   GCCGOOPT=
   GOVERSIONOPTION=
 
   if test -n "$GO" ; then
-    GO1=true
     GOVERSIONOPTION=version
     go_version=$($GO $GOVERSIONOPTION | sed -e 's/go version //')
-    case "$go_version" in
-    go1 | go1.[[01234]] | go1.[[01234]].*)
-      GOC=$(sh -c "$(go env) && echo \$GOCHAR")c
-      ;;
-    *)
-      GOC=compile
-      ;;
-    esac
     AC_MSG_CHECKING([whether go version is too old])
     case $go_version in
-    go1.1.* | go1.1 | go1.0 | go1.0.* | go1 )
-      AC_MSG_RESULT([yes - minimum version is 1.2])
+    go1.[012]*)
+      AC_MSG_RESULT([yes - minimum version is 1.3])
       GO=
       GOOPT="-intgosize 32"
       ;;
@@ -2427,20 +2426,6 @@ else
         GOOPT="-intgosize 32"
 	;;
       esac
-      ;;
-    esac
-    case $go_version in
-    go1.0 | go1.0.* | go1 | go1.1 | go1.1.*)
-      GOOPT="$GOOPT -use-shlib"
-      ;;
-    go1.2 | go1.2.*)
-      GO12=true
-      ;;
-    go1.3 | go1.3.* | go1.4 | go1.4.*)
-      GO13=true
-      ;;
-    *)
-      GO15=true
       ;;
     esac
   fi

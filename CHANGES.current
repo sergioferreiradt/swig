@@ -4,18 +4,18 @@ See the RELEASENOTES file for a summary of changes in each release.
 Issue # numbers mentioned below can be found on Github. For more details, add
 the issue number to the end of the URL: https://github.com/swig/swig/issues/
 
-Version 4.0.1 (in progress)
+Version 4.0.2 (in progress)
 ===========================
 
-2019-05-25: vadz
-            Add append=1 modifier for typemap definitions.
+2019-12-10: wsfulton
+            #1679 Fix parsing of C++11 identifiers with special meaning (final and override) when
+            they are used as part of the scope name of an identifier, such as a namespace name.
 
-2019-05-24: wsfulton
-            [Octave] Fix detection of Octave on MacOS.
+2019-11-26: wsfulton
+            [C#] #1628 'out' or 'ref' used in a cstype typemap was not always stripped out in parts
+            of director code generation.
 
-2019-05-24: opoplawski
-            [Octave] #1522 Adapt OCTAVE_LDFLAGS for Octave 5.1.
-
-2019-05-22: ferdynator
-	    [PHP] #1528 Don't add a closing '?>' PHP tag to generated files.
-	    PSR-2 says it MUST be omitted for files containing only PHP.
+2019-11-01: wsfulton
+            [Python] #1595 Fix bug in support for keyword arguments (kwargs feature or -keyword)
+            when using -builtin. The fix is in the argument error checking when wrapping zero
+            argument constructors only.

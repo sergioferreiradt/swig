@@ -324,6 +324,7 @@ CPP_TEST_CASES += \
 	nested_directors \
 	nested_comment \
 	nested_ignore \
+	nested_inheritance_interface \
 	nested_in_template \
 	nested_scope \
 	nested_template_base \
@@ -609,17 +610,21 @@ CPP11_TEST_BROKEN = \
 #	cpp11_reference_wrapper \     # No typemaps
 
 # Doxygen support test cases: can only be used with languages supporting
-# Doxygen comment translation, currently only Python and Java.
+# Doxygen comment translation (currently Python and Java) and only if not
+# disabled by configure via SKIP_DOXYGEN_TEST_CASES.
+ifneq ($(SKIP_DOXYGEN_TEST_CASES),1)
 python_HAS_DOXYGEN := 1
 java_HAS_DOXYGEN := 1
 
 $(eval HAS_DOXYGEN := $($(LANGUAGE)_HAS_DOXYGEN))
+endif
 
 ifdef HAS_DOXYGEN
 DOXYGEN_TEST_CASES += \
 	doxygen_alias \
 	doxygen_basic_notranslate \
 	doxygen_basic_translate \
+	doxygen_basic_translate_style2 \
 	doxygen_ignore \
 	doxygen_misc_constructs \
 	doxygen_nested_class \
@@ -641,6 +646,7 @@ CPP_STD_TEST_CASES += \
 	director_string \
 	ignore_template_constructor \
 	li_std_combinations \
+	li_std_containers_overload \
 	li_std_deque \
 	li_std_except \
 	li_std_except_as_class \
@@ -653,6 +659,7 @@ CPP_STD_TEST_CASES += \
 	li_std_vector_enum \
 	li_std_vector_member_var\
 	li_std_vector_ptr \
+	li_std_wstring \
 	smart_pointer_inherit \
 	template_typedef_fnc \
 	template_type_namespace \
