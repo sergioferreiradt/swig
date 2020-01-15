@@ -159,6 +159,7 @@ CPP_TEST_CASES += \
 	cpp_enum \
 	cpp_namespace \
 	cpp_nodefault \
+	cpp_parameters \
 	cpp_static \
 	cpp_typedef \
 	cpp14_binary_integer_literals \
@@ -250,6 +251,7 @@ CPP_TEST_CASES += \
 	funcptr_cpp \
 	functors \
 	fvirtual \
+	global_immutable_vars_cpp \
 	global_namespace \
 	global_ns_arg \
 	global_scope_types \
@@ -633,6 +635,7 @@ DOXYGEN_TEST_CASES += \
 	doxygen_translate \
 	doxygen_translate_all_tags \
 	doxygen_translate_links \
+	doxygen_code_blocks \
 
 $(DOXYGEN_TEST_CASES:=.cpptest): SWIGOPT += -doxygen
 
@@ -692,6 +695,7 @@ C_TEST_CASES += \
 	funcptr \
 	function_typedef \
 	global_functions \
+	global_immutable_vars \
 	immutable_values \
 	inctest \
 	infinity \
