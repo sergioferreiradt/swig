@@ -1323,25 +1323,21 @@ SWIG_Python_NewShadowInstance(SwigPyClientData *data, PyObject *swig_this)
   return inst;
 }
 
-SWIGRUNTIME void
+SWIGRUNTIME int
 SWIG_Python_SetSwigThis(PyObject *inst, PyObject *swig_this)
 {
- PyObject *dict;
 #if !defined(SWIG_PYTHON_SLOW_GETSET_THIS)
- PyObject **dictptr = _PyObject_GetDictPtr(inst);
- if (dictptr != NULL) {
-   dict = *dictptr;
-   if (dict == NULL) {
-     dict = PyDict_New();
-     *dictptr = dict;
-   }
-   PyDict_SetItem(dict, SWIG_This(), swig_this);
-   return;
- }
+  PyObject **dictptr = _PyObject_GetDictPtr(inst);
+  if (dictptr != NULL) {
+    PyObject *dict = *dictptr;
+    if (dict == NULL) {
+      dict = PyDict_New();
+      *dictptr = dict;
+    }
+    return PyDict_SetItem(dict, SWIG_This(), swig_this);
+  }
 #endif
- dict = PyObject_GetAttrString(inst, "__dict__");
- PyDict_SetItem(dict, SWIG_This(), swig_this);
- Py_DECREF(dict);
+  return PyObject_SetAttr(inst, SWIG_This(), swig_this);
 } 
 
 
@@ -1355,7 +1351,8 @@ SWIG_Python_InitShadowInstance(PyObject *args) {
     if (sthis) {
       SwigPyObject_append((PyObject*) sthis, obj[1]);
     } else {
-      SWIG_Python_SetSwigThis(obj[0], obj[1]);
+      if (SWIG_Python_SetSwigThis(obj[0], obj[1]) != 0)
+        return NULL;
     }
     return SWIG_Py_Void();
   }

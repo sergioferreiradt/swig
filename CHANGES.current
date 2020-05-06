@@ -7,6 +7,55 @@ the issue number to the end of the URL: https://github.com/swig/swig/issues/
 Version 4.0.2 (in progress)
 ===========================
 
+2020-02-18: ryannevell
+            [Lua] #1728 Add support for LUA lightuserdata to SWIG_Lua_ConvertPtr.
+
+2020-02-18: dmach
+            [Ruby] #1725 Fix gcc -Wcatch-value warnings.
+
+2020-02-14: treitmayr
+            #1724 Fix wrapping of abstract user-defined conversion operators.
+
+2020-02-13: ddurham2
+            [Python] #1512 Fix memleak when using STL containers of shared_ptr objects.
+
+2020-02-06: wsfulton
+            [Python] #1673 #1674 Fix setting 'this' when extending a proxy class with __slots__.
+
+2020-01-31: vadz
+            [Ruby] #1651 Add std::auto_ptr<> typemaps.
+
+2020-01-31: ZackerySpytz
+            [Python] #1700 More robust error checking for failures in calls to Python C API:
+            PyBytes_AsStringAndSize() and PyString_AsStringAndSize().
+
+2020-01-31: vadz
+            [Python] #1710 Fix crash parsing empty docstrings.
+
+2020-01-30: Alzathar
+            [R] #910 #914 Fix R memory leak on exception.
+
+2020-01-30: richardbeare
+            [R] #1511 Fix bug wrapping functions. These were previously incorrectly wrapped as if
+            they were variables. This happened when 'get' or 'set' was in the name of the function
+            or method, but sometimes also in some other circumstances. If you were using R
+            attribute syntax to access these methods, you'll need to switch to calling them as R
+            methods.
+
+            *** POTENTIAL INCOMPATIBILITY ***
+
+2020-01-24: etse-dignitas, wsfulton
+            [C#, D, Java] #1533 Fix upcasting for shared_ptr's of templated types.
+
+2020-01-16: mcfarljm
+            #1643 #1654 When using -doxygen, fix segfault when nameless parameters or vararg parameters
+            are used.
+
+2020-01-16: mcfarljm
+            #1632 #1659 Fix newline handling for doxygen "///" comments.
+
+2020-01-14: mcfarljm
+            #1647 #1656 Fix crash handling empty doxygen comments.
 
 2020-01-14: mcfarljm
             #1608 Improve doxygen support.

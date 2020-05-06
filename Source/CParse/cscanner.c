@@ -428,11 +428,25 @@ static int yylook(void) {
 	/* Concatenate or skip all consecutive comments at once. */
 	do {
 	  String *cmt = Scanner_text(scan);
+	  String *cmt_modified = 0;
 	  char *loc = Char(cmt);
 	  if ((strncmp(loc, "/*@SWIG", 7) == 0) && (loc[Len(cmt)-3] == '@')) {
 	    Scanner_locator(scan, cmt);
 	  }
 	  if (scan_doxygen_comments) { /* else just skip this node, to avoid crashes in parser module*/
+
+	    int slashStyle = 0; /* Flag for "///" style doxygen comments */
+	    if (strncmp(loc, "///", 3) == 0) {
+	      slashStyle = 1;
+	      if (Len(cmt) == 3) {
+		/* Modify to make length=4 to ensure that the empty comment does
+		   get processed to preserve the newlines in the original comments. */
+		cmt_modified = NewStringf("%s ", cmt);
+		cmt = cmt_modified;
+		loc = Char(cmt);
+	      }
+	    }
+	    
 	    /* Check for all possible Doxygen comment start markers while ignoring
 	       comments starting with a row of asterisks or slashes just as
 	       Doxygen itself does.  Also skip empty comment (slash-star-star-slash), 
@@ -462,6 +476,13 @@ static int yylook(void) {
 		  Setline(yylval.str, Scanner_start_line(scan));
 		  Setfile(yylval.str, Scanner_file(scan));
 		} else {
+		  if (slashStyle) {
+		    /* Add a newline to the end of each doxygen "///" comment,
+		       since they are processed individually, unlike the
+		       slash-star style, which gets processed as a block with
+		       newlines included. */
+		    Append(yylval.str, "\n");
+		  }
 		  Append(yylval.str, str);
 		}
 
@@ -472,6 +493,7 @@ static int yylook(void) {
 	  do {
 	    tok = Scanner_token(scan);
 	  } while (tok == SWIG_TOKEN_ENDLINE);
+	  Delete(cmt_modified);
 	} while (tok == SWIG_TOKEN_COMMENT);
 
 	Scanner_pushtoken(scan, tok, Scanner_text(scan));

@@ -184,6 +184,7 @@ CPP_TEST_CASES += \
 	director_classes \
 	director_classic \
 	director_constructor \
+	director_conversion_operators \
 	director_default \
 	director_detect \
 	director_enum \
@@ -627,6 +628,8 @@ DOXYGEN_TEST_CASES += \
 	doxygen_basic_notranslate \
 	doxygen_basic_translate \
 	doxygen_basic_translate_style2 \
+	doxygen_basic_translate_style3 \
+	doxygen_code_blocks \
 	doxygen_ignore \
 	doxygen_misc_constructs \
 	doxygen_nested_class \
@@ -635,7 +638,6 @@ DOXYGEN_TEST_CASES += \
 	doxygen_translate \
 	doxygen_translate_all_tags \
 	doxygen_translate_links \
-	doxygen_code_blocks \
 
 $(DOXYGEN_TEST_CASES:=.cpptest): SWIGOPT += -doxygen
 

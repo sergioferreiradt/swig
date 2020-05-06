@@ -434,11 +434,10 @@ std::string PyDocConverter::getParamType(std::string param) {
   ParmList *plist = CopyParmList(Getattr(currentNode, "parms"));
   for (Parm *p = plist; p; p = nextSibling(p)) {
     String *pname = Getattr(p, "name");
-    if (Char(pname) != param)
-      continue;
-
-    type = getPyDocType(p, pname);
-    break;
+    if (pname && Char(pname) == param) {
+      type = getPyDocType(p, pname);
+      break;
+    }
   }
   Delete(plist);
   return type;
@@ -450,12 +449,12 @@ std::string PyDocConverter::getParamValue(std::string param) {
   ParmList *plist = CopyParmList(Getattr(currentNode, "parms"));
   for (Parm *p = plist; p; p = nextSibling(p)) {
     String *pname = Getattr(p, "name");
-    if (Char(pname) != param)
-      continue;
-
-    String *pval = Getattr(p, "value");
-    if (pval) value = Char(pval);
-    break;
+    if (pname && Char(pname) == param) {
+      String *pval = Getattr(p, "value");
+      if (pval)
+	value = Char(pval);
+      break;
+    }
   }
   Delete(plist);
   return value;
