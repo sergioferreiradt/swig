@@ -404,12 +404,20 @@ private:
   void generateBaseInterfaces(Node *topNode);
   void substituteClassnameSpecialVariable(SwigType *classnametype, String *tm, const char *classnamespecialvariable, bool jnidescriptor = false);
   Node *findTemplate(Node *topNode, char *name);
+  Node *findInsert(Node *topNode, char *section);
+  bool isTemplate(Node *n, char *name)
+  {
+    if (Strcmp(nodeType(n), "template") == 0 && Strcmp(Getattr(n, "name"), name) == 0)
+      return true;
+    return false;
+  }
 
-  // void emitProxyClassDefAndCPPCasts(Node *n);
-  // const String *typemapLookup(Node *n, const_String_or_char_ptr tmap_method, SwigType *type, int warning, Node *typemap_attributes = 0);
-  // void addInterfaceNameAndUpcasts(SwigType *smart, String *interface_list, String *interface_upcasts, Hash *base_list, SwigType *c_classname);
-  // String *makeValidJniName(const String *name);
-  // void upcastsCode(SwigType *smart, String *upcast_method_name, SwigType *c_classname, SwigType *c_baseclassname);
+  bool isInsert(Node *n, char *section)
+  {
+    if (Strcmp(nodeType(n), "insert") == 0 && Strcmp(Getattr(n, "section"), section) == 0)
+      return true;
+    return false;
+  }
 };
 
 /* -----------------------------------------------------------------------------
@@ -599,70 +607,33 @@ int JAVASCRIPT::nativeWrapper(Node *n)
   return SWIG_OK;
 }
 
-/* ---------------------------------------------------------------------
- * classHandler()
- *
+/**
  * Function handler for generating wrappers for class
- * --------------------------------------------------------------------- */
-
+ * When top() is called to traverse the node tree, this function is called
+ * id the node is "class" type
+ */
 int JAVASCRIPT::classHandler(Node *n)
 {
   emitter->switchNamespace(n);
-  // Printf(stdout, "ClassHandler : \n");
-
-  Printf(stdout, " ####### 22 - Classname : %s\n", Getattr(n, "name"));
-  // Printf(stdout, "   Symname  : %s\n", Getattr(n, "sym:name"));
-  // Printf(stdout, "   Nested Outer  : %s\n", Getattr(n, "nested:outer"));
-  // Printf(stdout, "   N Space  : %s\n", getNSpace());
-  ///////////////////////////////////////
+  emitter->enterClass(n);
 
   proxyInterface = new ProxyInterface(ProxyInterface::interfaceType);
-  // proxyInterface->n = n;
-  proxyInterface->setClassName(Getattr(n,"sym:name"));
-  emitter->enterClass(n);
+  proxyInterface->setClassName(Getattr(n, "sym:name"));
+
+  // Calling default swig handler to continue normal tree traverse
   Language::classHandler(n);
 
-  /*
-  Printf(stdout, "##### 11 - Going to get children : %s\n", Getattr(n, "name"));
-  for (Node *p = firstChild(n); p; p = nextSibling(p))
-  {
-    if (Getattr(p, "kind") && Getattr(p, "access"))
-    {
-      if (Strcmp(Getattr(p, "kind"), "variable") == 0 && Strcmp(Getattr(p, "access"), "public") == 0)
-      // if (Strcmp(Getattr(p, "kind"), "variable") == 0 )
-      {
-        Printf(stdout, "    ##### 11 - Name : %s\n", Getattr(p, "name"));
-        Printf(stdout, "    ##### 11 - Kind : %s\n", Getattr(p, "kind"));
-        Printf(stdout, "    ##### 11 - Access : %s\n", Getattr(p, "access"));
-        Printf(stdout, "    ##### 11 - type : %s\n\n\n", Getattr(p, "type"));
-        for (Node *j = Getattr(p, "sym:symtab"); j; j = nextSibling(j))
-        {
-          Printf(stdout, "       ##### 11 - Name : %s\n", Getattr(j, "name"));
-          Printf(stdout, "       ##### 11 - type : %s\n\n\n", Getattr(j, "type"));
-        }
-      }
-    }
-  }
-  */
-  Printf(proxyInterface->baseClassName, "%s", getBaseClass(n));
-  Printf(stdout, "###### 22 - Going to generate code for %s\n", Getattr(n, "sym:name"));
-  proxyInterface->generateProxy();
-  // emitProxyClassDefAndCPPCasts(n);
   emitter->exitClass(n);
+
+  proxyInterface->baseClassName = getBaseClass(n);
+  proxyInterface->generateProxy();
   delete proxyInterface;
   proxyInterface = NULL;
 
   return SWIG_OK;
 }
 
-bool isInsert(Node *n, char *section)
-{
-  if (Strcmp(nodeType(n), "insert") == 0 && Strcmp(Getattr(n, "section"), section) == 0)
-    return true;
-  return false;
-}
-
-Node *findInsert(Node *topNode, char *section)
+Node *JAVASCRIPT::findInsert(Node *topNode, char *section)
 {
   if (!topNode)
   {
@@ -718,13 +689,6 @@ void JAVASCRIPT::generateBaseInterfaces(Node *topNode)
   Printf(stdout, "================================================================ 25\n");
 }
 
-bool isTemplate(Node *n, char *name)
-{
-  if (Strcmp(nodeType(n), "template") == 0 && Strcmp(Getattr(n, "name"), name) == 0)
-    return true;
-  return false;
-}
-
 /**
  * Try to find a template by name
  */
@@ -765,11 +729,6 @@ Node *JAVASCRIPT::findTemplate(Node *topNode, char *name)
  */
 int JAVASCRIPT::membervariableHandler(Node *n)
 {
-  Printf(stdout, "      ===== Member variable (javascript) : %s \n", Getattr(n, "sym:name"));
-  Printf(stdout, "      ===== Original Member variable (javascript) : %s \n", Getattr(n, "name"));
-  Printf(stdout, "      ===== Access : %s \n", Getattr(n, "access"));
-  Printf(stdout, "      ===== TYPE : %s \n", Getattr(n, "type"));
-
   String *typescriptProxyType = getTypescriptProxyType(n);
   proxyInterface->addMemberVariable(n, typescriptProxyType);
   Language::membervariableHandler(n);
@@ -786,7 +745,7 @@ int JAVASCRIPT::enumDeclaration(Node *n)
   Printf(stdout, "###### 20 1 - Enum : %s\n ", Getattr(n, "sym:name"));
   proxyEnum = new ProxyInterface(ProxyInterface::enumType);
   // proxyEnum->n = n;
-  proxyEnum->setClassName(Getattr(n,"sym:name"));
+  proxyEnum->setClassName(Getattr(n, "sym:name"));
   Language::enumDeclaration(n);
   proxyEnum->generateProxy();
   delete proxyEnum;
