@@ -1,14 +1,18 @@
 /* -----------------------------------------------------------------------------
- * javascript.swg
+ * typescript.swg
  *
- * Javascript typemaps
+ * TypeScript typemaps
  * ----------------------------------------------------------------------------- */
+
 
 %include <typemaps/swigmacros.swg>
 
+
 %include <javascripttypemaps.swg>
 
-%include <javascriptruntime.swg>
+
+%include <javacriptruntime.swg>
+
 
 %include <javascripthelpers.swg>
 
@@ -18,12 +22,10 @@
 
 %include <javascriptinit.swg>
 
-%typemap(typescripttype) bool,               const bool &               "boolean"
 
+%typemap(typescripttype) bool,               const bool &               "boolean"
 %typemap(typescripttype) char,               const char &               "string"
 %typemap(typescripttype) signed char,        const signed char &        "string"
-%typemap(typescripttype) std::string                                    "string"
-
 %typemap(typescripttype) unsigned char,      const unsigned char &      "number"
 %typemap(typescripttype) short,              const short &              "number"
 %typemap(typescripttype) unsigned short,     const unsigned short &     "number"
@@ -36,15 +38,3 @@
 %typemap(typescripttype) float,              const float &              "number"
 %typemap(typescripttype) double,             const double &             "number"
 %typemap(typescripttype) void                                           "number"
-
-//%typemap(typescriptbase) std::vector<(ito33::plugin::Date)> "java.util.AbstractList<$typemap(jboxtype, CTYPE)>"
-
-/* TODO : Change this */
-//%typemap(javainterfaces)       SWIGTYPE, SWIGTYPE *, SWIGTYPE &, SWIGTYPE &&, SWIGTYPE [], SWIGTYPE (CLASS::*) ""
-//%typemap(typescriptbase)    std::vector<CTYPE> "java.util.AbstractList<$typemap(jboxtype, CTYPE)>"
-%typemap(xpto)   std::vector< CTYPE > "This is a vector typemap for CTYPE"
-%typemap(xpto)      long      "This is a long typemap"
-//%template(intXptoVector) std::vector<int>;
-%typemap(xpta)   std::vector< CTYPE > "This is a vector typemap for CTYPE"
-
-#define %proxycode                  %insert("proxycode")

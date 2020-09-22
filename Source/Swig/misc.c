@@ -563,6 +563,7 @@ String *Swig_string_ucase(String *s) {
   return ns;
 }
 
+
 /* -----------------------------------------------------------------------------
  * Swig_string_first_upper()
  *

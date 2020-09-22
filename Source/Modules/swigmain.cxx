@@ -25,7 +25,8 @@
    the function has "C" linkage.  This is required so that modules
    can be dynamically loaded in future versions. */
 
-extern "C" {
+extern "C"
+{
   Language *swig_csharp(void);
   Language *swig_d(void);
   Language *swig_go(void);
@@ -44,6 +45,7 @@ extern "C" {
   Language *swig_scilab(void);
   Language *swig_tcl(void);
   Language *swig_xml(void);
+  Language *swig_typescript(void);
 }
 
 /* Association of command line options to language modules.
@@ -51,38 +53,38 @@ extern "C" {
    list sorted alphabetically. */
 
 static TargetLanguageModule modules[] = {
-  {"-allegrocl", NULL, "ALLEGROCL", Disabled},
-  {"-chicken", NULL, "CHICKEN", Disabled},
-  {"-clisp", NULL, "CLISP", Disabled},
-  {"-cffi", NULL, "CFFI", Disabled},
-  {"-csharp", swig_csharp, "C#", Supported},
-  {"-d", swig_d, "D", Supported},
-  {"-go", swig_go, "Go", Supported},
-  {"-guile", swig_guile, "Guile", Supported},
-  {"-java", swig_java, "Java", Supported},
-  {"-javascript", swig_javascript, "Javascript", Supported},
-  {"-lua", swig_lua, "Lua", Supported},
-  {"-modula3", NULL, "Modula 3", Disabled},
-  {"-mzscheme", swig_mzscheme, "MzScheme/Racket", Experimental},
-  {"-ocaml", swig_ocaml, "OCaml", Experimental},
-  {"-octave", swig_octave, "Octave", Supported},
-  {"-perl", swig_perl5, NULL, Supported},
-  {"-perl5", swig_perl5, "Perl 5", Supported},
-  {"-php", swig_php, NULL, Supported},
-  {"-php5", NULL, "PHP 5", Disabled},
-  {"-php7", swig_php, "PHP 7", Supported},
-  {"-pike", NULL, "Pike", Disabled},
-  {"-python", swig_python, "Python", Supported},
-  {"-r", swig_r, "R (aka GNU S)", Supported},
-  {"-ruby", swig_ruby, "Ruby", Supported},
-  {"-scilab", swig_scilab, "Scilab", Supported},
-  {"-sexp", NULL, "Lisp S-Expressions", Disabled},
-  {"-tcl", swig_tcl, NULL, Supported},
-  {"-tcl8", swig_tcl, "Tcl 8", Supported},
-  {"-uffi", NULL, "Common Lisp / UFFI", Disabled},
-  {"-xml", swig_xml, "XML", Supported},
-  {NULL, NULL, NULL, Disabled}
-};
+    {"-allegrocl", NULL, "ALLEGROCL", Disabled},
+    {"-chicken", NULL, "CHICKEN", Disabled},
+    {"-clisp", NULL, "CLISP", Disabled},
+    {"-cffi", NULL, "CFFI", Disabled},
+    {"-csharp", swig_csharp, "C#", Supported},
+    {"-d", swig_d, "D", Supported},
+    {"-go", swig_go, "Go", Supported},
+    {"-guile", swig_guile, "Guile", Supported},
+    {"-java", swig_java, "Java", Supported},
+    {"-javascript", swig_javascript, "Javascript", Supported},
+    {"-lua", swig_lua, "Lua", Supported},
+    {"-modula3", NULL, "Modula 3", Disabled},
+    {"-mzscheme", swig_mzscheme, "MzScheme/Racket", Experimental},
+    {"-ocaml", swig_ocaml, "OCaml", Experimental},
+    {"-octave", swig_octave, "Octave", Supported},
+    {"-perl", swig_perl5, NULL, Supported},
+    {"-perl5", swig_perl5, "Perl 5", Supported},
+    {"-php", swig_php, NULL, Supported},
+    {"-php5", NULL, "PHP 5", Disabled},
+    {"-php7", swig_php, "PHP 7", Supported},
+    {"-pike", NULL, "Pike", Disabled},
+    {"-python", swig_python, "Python", Supported},
+    {"-r", swig_r, "R (aka GNU S)", Supported},
+    {"-ruby", swig_ruby, "Ruby", Supported},
+    {"-scilab", swig_scilab, "Scilab", Supported},
+    {"-sexp", NULL, "Lisp S-Expressions", Disabled},
+    {"-tcl", swig_tcl, NULL, Supported},
+    {"-tcl8", swig_tcl, "Tcl 8", Supported},
+    {"-uffi", NULL, "Common Lisp / UFFI", Disabled},
+    {"-xml", swig_xml, "XML", Supported},
+    {"-typescript", swig_typescript, "Typescript", Experimental},
+    {NULL, NULL, NULL, Disabled}};
 
 #ifdef MACSWIG
 #include <console.h>
@@ -95,8 +97,10 @@ static TargetLanguageModule modules[] = {
 // Main program.    Initializes the files and starts the parser.
 //-----------------------------------------------------------------
 
-void SWIG_merge_envopt(const char *env, int oargc, char *oargv[], int *nargc, char ***nargv) {
-  if (!env) {
+void SWIG_merge_envopt(const char *env, int oargc, char *oargv[], int *nargc, char ***nargv)
+{
+  if (!env)
+  {
     *nargc = oargc;
     *nargv = (char **)malloc(sizeof(char *) * (oargc + 1));
     memcpy(*nargv, oargv, sizeof(char *) * (oargc + 1));
@@ -105,26 +109,30 @@ void SWIG_merge_envopt(const char *env, int oargc, char *oargv[], int *nargc, ch
 
   int argc = 1;
   int arge = oargc + 1024;
-  char **argv = (char **) malloc(sizeof(char *) * (arge + 1));
-  char *buffer = (char *) malloc(2048);
+  char **argv = (char **)malloc(sizeof(char *) * (arge + 1));
+  char *buffer = (char *)malloc(2048);
   char *b = buffer;
   char *be = b + 1023;
   const char *c = env;
-  while ((b != be) && *c && (argc < arge)) {
+  while ((b != be) && *c && (argc < arge))
+  {
     while (isspace(*c) && *c)
       ++c;
-    if (*c) {
+    if (*c)
+    {
       argv[argc] = b;
       ++argc;
     }
-    while ((b != be) && *c && !isspace(*c)) {
+    while ((b != be) && *c && !isspace(*c))
+    {
       *(b++) = *(c++);
     }
     *b++ = 0;
   }
 
   argv[0] = oargv[0];
-  for (int i = 1; (i < oargc) && (argc < arge); ++i, ++argc) {
+  for (int i = 1; (i < oargc) && (argc < arge); ++i, ++argc)
+  {
     argv[argc] = oargv[i];
   }
   argv[argc] = NULL;
@@ -133,7 +141,8 @@ void SWIG_merge_envopt(const char *env, int oargc, char *oargv[], int *nargc, ch
   *nargv = argv;
 }
 
-static void insert_option(int *argc, char ***argv, int index, char const *start, char const *end) {
+static void insert_option(int *argc, char ***argv, int index, char const *start, char const *end)
+{
   int new_argc = *argc;
   char **new_argv = *argv;
   size_t option_len = end - start;
@@ -151,7 +160,8 @@ static void insert_option(int *argc, char ***argv, int index, char const *start,
   *argv = new_argv;
 }
 
-static void merge_options_files(int *argc, char ***argv) {
+static void merge_options_files(int *argc, char ***argv)
+{
   static const int BUFFER_SIZE = 4096;
   char buffer[BUFFER_SIZE];
   int i;
@@ -161,8 +171,10 @@ static void merge_options_files(int *argc, char ***argv) {
   FILE *f;
 
   i = 1;
-  while (i < new_argc) {
-    if (new_argv[i] && new_argv[i][0] == '@' && (f = fopen(&new_argv[i][1], "r"))) {
+  while (i < new_argc)
+  {
+    if (new_argv[i] && new_argv[i][0] == '@' && (f = fopen(&new_argv[i][1], "r")))
+    {
       int ci;
       char *b;
       char *be = &buffer[BUFFER_SIZE];
@@ -174,28 +186,42 @@ static void merge_options_files(int *argc, char ***argv) {
       insert = i;
       b = buffer;
 
-      while ((ci = fgetc(f)) != EOF) {
+      while ((ci = fgetc(f)) != EOF)
+      {
         const char c = static_cast<char>(ci);
-        if (escape) {
-          if (b != be) {
+        if (escape)
+        {
+          if (b != be)
+          {
             *b = c;
             ++b;
           }
           escape = false;
-        } else if (c == '\\') {
+        }
+        else if (c == '\\')
+        {
           escape = true;
-        } else if (!quote && (c == '\'' || c == '"')) {
+        }
+        else if (!quote && (c == '\'' || c == '"'))
+        {
           quote = c;
-        } else if (quote && c == quote) {
+        }
+        else if (quote && c == quote)
+        {
           quote = 0;
-        } else if (isspace(c) && !quote) {
-          if (b != buffer) {
+        }
+        else if (isspace(c) && !quote)
+        {
+          if (b != buffer)
+          {
             insert_option(&new_argc, &new_argv, insert, buffer, b);
             insert++;
 
             b = buffer;
           }
-        } else if (b != be) {
+        }
+        else if (b != be)
+        {
           *b = c;
           ++b;
         }
@@ -203,7 +229,9 @@ static void merge_options_files(int *argc, char ***argv) {
       if (b != buffer)
         insert_option(&new_argc, &new_argv, insert, buffer, b);
       fclose(f);
-    } else {
+    }
+    else
+    {
       ++i;
     }
   }
@@ -212,7 +240,8 @@ static void merge_options_files(int *argc, char ***argv) {
   *argc = new_argc;
 }
 
-int main(int margc, char **margv) {
+int main(int margc, char **margv)
+{
   int i;
   const TargetLanguageModule *language_module = 0;
 
@@ -230,41 +259,53 @@ int main(int margc, char **margv) {
   Swig_init_args(argc, argv);
 
   /* Get options */
-  for (i = 1; i < argc; i++) {
-    if (argv[i]) {
+  for (i = 1; i < argc; i++)
+  {
+    if (argv[i])
+    {
       bool is_target_language_module = false;
-      for (int j = 0; modules[j].name; j++) {
-	if (strcmp(modules[j].name, argv[i]) == 0) {
-	  language_module = &modules[j];
-	  is_target_language_module = true;
-	  break;
-	}
+      for (int j = 0; modules[j].name; j++)
+      {
+        if (strcmp(modules[j].name, argv[i]) == 0)
+        {
+          language_module = &modules[j];
+          is_target_language_module = true;
+          break;
+        }
       }
-      if (is_target_language_module) {
-	Swig_mark_arg(i);
-	if (language_module->status == Disabled) {
-	  if (language_module->help)
-	    Printf(stderr, "Target language option %s (%s) is no longer supported.\n", language_module->name, language_module->help);
-	  else
-	    Printf(stderr, "Target language option %s is no longer supported.\n", language_module->name);
-	  SWIG_exit(EXIT_FAILURE);
-	}
-      } else if ((strcmp(argv[i], "-help") == 0) || (strcmp(argv[i], "--help") == 0)) {
-	if (strcmp(argv[i], "--help") == 0)
-	  strcpy(argv[i], "-help");
-	Printf(stdout, "Supported Target Language Options\n");
-	for (int j = 0; modules[j].name; j++) {
-	  if (modules[j].help && modules[j].status == Supported) {
-	    Printf(stdout, "     %-15s - Generate %s wrappers\n", modules[j].name, modules[j].help);
-	  }
-	}
-	Printf(stdout, "\nExperimental Target Language Options\n");
-	for (int j = 0; modules[j].name; j++) {
-	  if (modules[j].help && modules[j].status == Experimental) {
-	    Printf(stdout, "     %-15s - Generate %s wrappers\n", modules[j].name, modules[j].help);
-	  }
-	}
-	// Swig_mark_arg not called as the general -help options also need to be displayed later on
+      if (is_target_language_module)
+      {
+        Swig_mark_arg(i);
+        if (language_module->status == Disabled)
+        {
+          if (language_module->help)
+            Printf(stderr, "Target language option %s (%s) is no longer supported.\n", language_module->name, language_module->help);
+          else
+            Printf(stderr, "Target language option %s is no longer supported.\n", language_module->name);
+          SWIG_exit(EXIT_FAILURE);
+        }
+      }
+      else if ((strcmp(argv[i], "-help") == 0) || (strcmp(argv[i], "--help") == 0))
+      {
+        if (strcmp(argv[i], "--help") == 0)
+          strcpy(argv[i], "-help");
+        Printf(stdout, "Supported Target Language Options\n");
+        for (int j = 0; modules[j].name; j++)
+        {
+          if (modules[j].help && modules[j].status == Supported)
+          {
+            Printf(stdout, "     %-15s - Generate %s wrappers\n", modules[j].name, modules[j].help);
+          }
+        }
+        Printf(stdout, "\nExperimental Target Language Options\n");
+        for (int j = 0; modules[j].name; j++)
+        {
+          if (modules[j].help && modules[j].status == Experimental)
+          {
+            Printf(stdout, "     %-15s - Generate %s wrappers\n", modules[j].name, modules[j].help);
+          }
+        }
+        // Swig_mark_arg not called as the general -help options also need to be displayed later on
       }
     }
   }

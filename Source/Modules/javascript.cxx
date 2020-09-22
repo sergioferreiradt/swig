@@ -11,6 +11,7 @@
  * Javascript language module for SWIG.
  * ----------------------------------------------------------------------------- */
 
+#include <ctype.h>
 #include "swigmod.h"
 #include "cparse.h"
 
@@ -35,7 +36,9 @@ static bool js_template_enable_debug = false;
 #define PARENT "parent"
 #define PARENT_MANGLED "parent_mangled"
 #define CTOR "ctor"
-#define CTOR_WRAPPERS "ctor_wrappers"
+#define CTOR_WRAPPEbaseClassName \
+  = NULL;                        \
+  RS "ctor_wrappers"
 #define CTOR_DISPATCHERS "ctor_dispatchers"
 #define DTOR "dtor"
 #define ARGCOUNT "wrap:argc"
@@ -54,13 +57,13 @@ static bool js_template_enable_debug = false;
 #define STATIC_FUNCTIONS "static_functions"
 #define STATIC_VARIABLES "static_variables"
 
-
 /**
  * A convenience class to manage state variables for emitters.
  * The implementation delegates to SWIG Hash DOHs and provides
  * named sub-hashes for class, variable, and function states.
  */
-class JSEmitterState {
+class JSEmitterState
+{
 
 public:
   JSEmitterState();
@@ -82,38 +85,83 @@ private:
 
 /**
  * A convenience class that wraps a code snippet used as template
- * for code generation.
+ * for code generation.typemapLookup(n, "typescriptbase", typemapLookupCppType, WARN_NONE);
  */
-class Template {
+class Template
+{
 
 public:
   Template(const String *code);
   Template(const String *code, const String *templateName);
-  Template(const Template & other);
+  Template(const Template &other);
   ~Template();
   String *str();
-  Template & replace(const String *pattern, const String *repl);
-  Template & print(DOH *doh);
-  Template & pretty_print(DOH *doh);
-  void operator=(const Template & t);
-  Template & trim();
+  Template &replace(const String *pattern, const String *repl);
+  Template &print(DOH *doh);
+  Template &pretty_print(DOH *doh);
+  void operator=(const Template &t);
+  Template &trim();
 
 private:
   String *code;
   String *templateName;
 };
 
+/* -----------------------------------------------------------------------------
+ * Typescript Proxy emitter helper
+ * ----------------------------------------------------------------------------- */
+class ProxyInterface
+{
+public:
+  enum ProxyType
+  {
+    classType,
+    interfaceType,
+    enumType
+  };
+
+  ProxyInterface(ProxyType mProxyType) : proxyType(mProxyType), empty_string(NewString(""))
+  {
+    classCode = NewString("");
+    proxyExtraCode = NewString("");
+    baseClassName = NewString("");
+    printf("Class code variable was initialized\n");
+  };
+  ~ProxyInterface();
+  void generateProxy();
+  void setClassName(String *name) { className = NewString(name); }
+  void addMemberVariable(Node *n, String *typescriptType);
+  void addEnumValue(Node *n, String *value);
+  void insertCode(String *code);
+
+  // Node *n;
+  String *baseClassName;
+
+private:
+  String *classFileName;
+  String *classFilePath;
+  String *className;
+  String *classCode;
+  String *proxyExtraCode;
+  File *classFilePtr;
+  ProxyType proxyType;
+  String *typemapLookup(Node *n, const_String_or_char_ptr tmap_method, SwigType *type, int warning, Node *typemap_attributes = 0);
+  String *getProxyName(SwigType *t, bool jnidescriptor = false);
+  const String *empty_string;
+};
+
 /**
  * JSEmitter represents an abstraction of javascript code generators
  * for different javascript engines.
  **/
-class JSEmitter {
+class JSEmitter
+{
 
 protected:
-
   typedef JSEmitterState State;
 
-  enum MarshallingMode {
+  enum MarshallingMode
+  {
     Setter,
     Getter,
     Ctor,
@@ -121,16 +169,16 @@ protected:
   };
 
 public:
+  enum JSEngine
+  {
+    JavascriptCore,
+    V8,
+    NodeJS
+  };
 
-   enum JSEngine {
-     JavascriptCore,
-     V8,
-     NodeJS
-   };
+  JSEmitter(JSEngine engine);
 
-   JSEmitter(JSEngine engine);
-
-   virtual ~ JSEmitter();
+  virtual ~JSEmitter();
 
   /**
    * Opens output files and temporary output DOHs.
@@ -164,7 +212,8 @@ public:
   /**
    * Invoked at the end of the classHandler.
    */
-  virtual int exitClass(Node *) {
+  virtual int exitClass(Node *)
+  {
     return SWIG_OK;
   };
 
@@ -176,7 +225,8 @@ public:
   /**
    * Invoked at the end of the variableHandler.
    */
-  virtual int exitVariable(Node *) {
+  virtual int exitVariable(Node *)
+  {
     return SWIG_OK;
   };
 
@@ -188,7 +238,8 @@ public:
   /**
    * Invoked at the end of the functionHandler.
    */
-  virtual int exitFunction(Node *) {
+  virtual int exitFunction(Node *)
+  {
     return SWIG_OK;
   };
 
@@ -220,10 +271,9 @@ public:
    */
   Template getTemplate(const String *name);
 
-  State & getState();
+  State &getState();
 
 protected:
-
   /**
    * Generates code for a constructor function.
    */
@@ -239,7 +289,7 @@ protected:
    */
   virtual int emitFunction(Node *n, bool is_member, bool is_static);
 
-  virtual int emitFunctionDispatcher(Node *n, bool /*is_member */ );
+  virtual int emitFunctionDispatcher(Node *n, bool /*is_member */);
 
   /**
    * Generates code for a getter function.
@@ -272,9 +322,7 @@ protected:
 
   virtual int emitNamespaces() = 0;
 
-
 protected:
-
   JSEngine engine;
   Hash *templates;
   State state;
@@ -298,13 +346,17 @@ JSEmitter *swig_javascript_create_NodeJSEmitter();
  * JAVASCRIPT: SWIG module implementation
  **********************************************************************/
 
-class JAVASCRIPT:public Language {
+class JAVASCRIPT : public Language
+{
 
 public:
-
-  JAVASCRIPT():emitter(NULL) {
+  JAVASCRIPT() : emitter(NULL), empty_string(NewString("")),
+                 imclass_cppcasts_code(NULL), upcasts_code(NULL),
+                 proxy_class_name(NULL)
+  {
   }
-  ~JAVASCRIPT() {
+  ~JAVASCRIPT()
+  {
     delete emitter;
   }
 
@@ -313,7 +365,11 @@ public:
   virtual int variableHandler(Node *n);
   virtual int globalvariableHandler(Node *n);
   virtual int staticmemberfunctionHandler(Node *n);
+  virtual int membervariableHandler(Node *n);
   virtual int classHandler(Node *n);
+  virtual int enumDeclaration(Node *n);
+  virtual int enumvalueDeclaration(Node *n);
+  virtual int insertDirective(Node *n);
   virtual int functionWrapper(Node *n);
   virtual int constantWrapper(Node *n);
   virtual int nativeWrapper(Node *n);
@@ -325,14 +381,88 @@ public:
    **/
   virtual int fragmentDirective(Node *n);
 
-public:
+  ProxyInterface *proxyInterface;
+  ProxyInterface *proxyEnum;
 
+public:
   virtual String *getNSpace() const;
 
 private:
+  String *empty_string;
+  // TODO : The next two variables allocation need to be fixed
+  String *proxy_class_def;
+  String *imclass_cppcasts_code; //C++ casts up inheritance hierarchies intermediary class code
+  String *upcasts_code;          //C++ casts for inheritance hierarchies C++ code
+  String *proxy_class_name;      // proxy class name
 
   JSEmitter *emitter;
+  String *getBaseClass(Node *n);
+  String *getProxyName(SwigType *t, bool jnidescriptor = false);
+  String *typemapLookup(Node *n, const_String_or_char_ptr tmap_method, SwigType *type, int warning, Node *typemap_attributes = 0);
+  String *getTypescriptProxyType(Node *n);
+  String *getEnumName(SwigType *t, bool jnidescriptor = false);
+  void generateBaseInterfaces(Node *topNode);
+  void substituteClassnameSpecialVariable(SwigType *classnametype, String *tm, const char *classnamespecialvariable, bool jnidescriptor = false);
+  Node *findTemplate(Node *topNode, char *name);
+
+  // void emitProxyClassDefAndCPPCasts(Node *n);
+  // const String *typemapLookup(Node *n, const_String_or_char_ptr tmap_method, SwigType *type, int warning, Node *typemap_attributes = 0);
+  // void addInterfaceNameAndUpcasts(SwigType *smart, String *interface_list, String *interface_upcasts, Hash *base_list, SwigType *c_classname);
+  // String *makeValidJniName(const String *name);
+  // void upcastsCode(SwigType *smart, String *upcast_method_name, SwigType *c_classname, SwigType *c_baseclassname);
 };
+
+/* -----------------------------------------------------------------------------
+ * Swig_string_kcase()
+ *
+ * Convert Pascal Case Swig String to Kebab Case
+ *
+ *      CamelCase -> camel-case
+ *      get2D     -> get-2d
+ *      asFloat2  -> as-float2
+ * ----------------------------------------------------------------------------- */
+
+String *Swig_string_kcase(String *s)
+{
+  String *ns;
+  int c;
+  int lastC = 0;
+  int nextC = 0;
+  int underscore = 0;
+  ns = NewStringEmpty();
+
+  /* We insert a dash when:
+     1. Lower case char followed by upper case char
+     getFoo > get_foo; getFOo > get_foo; GETFOO > getfoo
+     2. Number preceded by char and not end of string
+     get2D > get_2d; get22D > get_22d; GET2D > get_2d
+     but:
+     asFloat2 > as_float2
+  */
+
+  Seek(s, 0, SEEK_SET);
+
+  while ((c = Getc(s)) != EOF)
+  {
+    nextC = Getc(s);
+    Ungetc(nextC, s);
+    if (isdigit(c) && isalpha(lastC) && nextC != EOF)
+      underscore = 1;
+    else if (isupper(c) && isalpha(lastC) && !isupper(lastC))
+      underscore = 1;
+
+    lastC = c;
+
+    if (underscore)
+    {
+      Putc('-', ns);
+      underscore = 0;
+    }
+
+    Putc(tolower(c), ns);
+  }
+  return ns;
+}
 
 /* ---------------------------------------------------------------------
  * functionWrapper()
@@ -340,7 +470,8 @@ private:
  * Low level code generator for functions
  * --------------------------------------------------------------------- */
 
-int JAVASCRIPT::functionWrapper(Node *n) {
+int JAVASCRIPT::functionWrapper(Node *n)
+{
 
   // note: the default implementation only prints a message
   // Language::functionWrapper(n);
@@ -354,9 +485,11 @@ int JAVASCRIPT::functionWrapper(Node *n) {
  *
  * Function handler for generating wrappers for functions
  * --------------------------------------------------------------------- */
-int JAVASCRIPT::functionHandler(Node *n) {
+int JAVASCRIPT::functionHandler(Node *n)
+{
 
-  if (GetFlag(n, "isextension") == 1) {
+  if (GetFlag(n, "isextension") == 1)
+  {
     SetFlag(n, "ismember");
   }
 
@@ -373,7 +506,8 @@ int JAVASCRIPT::functionHandler(Node *n) {
  * Function handler for generating wrappers for functions
  * --------------------------------------------------------------------- */
 
-int JAVASCRIPT::globalfunctionHandler(Node *n) {
+int JAVASCRIPT::globalfunctionHandler(Node *n)
+{
   emitter->switchNamespace(n);
   Language::globalfunctionHandler(n);
 
@@ -386,7 +520,8 @@ int JAVASCRIPT::globalfunctionHandler(Node *n) {
  * Function handler for generating wrappers for static member functions
  * --------------------------------------------------------------------- */
 
-int JAVASCRIPT::staticmemberfunctionHandler(Node *n) {
+int JAVASCRIPT::staticmemberfunctionHandler(Node *n)
+{
   /*
    *  Note: storage=static is removed by Language::staticmemberfunctionHandler.
    *    So, don't rely on that after here. Instead use the state variable which is
@@ -402,7 +537,8 @@ int JAVASCRIPT::staticmemberfunctionHandler(Node *n) {
  * Function handler for generating wrappers for variables
  * --------------------------------------------------------------------- */
 
-int JAVASCRIPT::variableHandler(Node *n) {
+int JAVASCRIPT::variableHandler(Node *n)
+{
 
   emitter->enterVariable(n);
   Language::variableHandler(n);
@@ -417,7 +553,8 @@ int JAVASCRIPT::variableHandler(Node *n) {
  * Function handler for generating wrappers for global variables
  * --------------------------------------------------------------------- */
 
-int JAVASCRIPT::globalvariableHandler(Node *n) {
+int JAVASCRIPT::globalvariableHandler(Node *n)
+{
   emitter->switchNamespace(n);
   Language::globalvariableHandler(n);
 
@@ -430,12 +567,14 @@ int JAVASCRIPT::globalvariableHandler(Node *n) {
  * Function handler for generating wrappers for constants
  * --------------------------------------------------------------------- */
 
-int JAVASCRIPT::constantWrapper(Node *n) {
+int JAVASCRIPT::constantWrapper(Node *n)
+{
   emitter->switchNamespace(n);
 
   // Note: callbacks trigger this wrapper handler
   // TODO: handle callback declarations
-  if (Equal(Getattr(n, "kind"), "function")) {
+  if (Equal(Getattr(n, "kind"), "function"))
+  {
     return SWIG_OK;
   }
   // TODO: the emitter for constants must be implemented in a cleaner way
@@ -453,7 +592,8 @@ int JAVASCRIPT::constantWrapper(Node *n) {
  * Function wrapper for generating placeholders for native functions
  * --------------------------------------------------------------------- */
 
-int JAVASCRIPT::nativeWrapper(Node *n) {
+int JAVASCRIPT::nativeWrapper(Node *n)
+{
   emitter->emitNativeFunction(n);
 
   return SWIG_OK;
@@ -465,32 +605,576 @@ int JAVASCRIPT::nativeWrapper(Node *n) {
  * Function handler for generating wrappers for class
  * --------------------------------------------------------------------- */
 
-int JAVASCRIPT::classHandler(Node *n) {
+int JAVASCRIPT::classHandler(Node *n)
+{
   emitter->switchNamespace(n);
+  // Printf(stdout, "ClassHandler : \n");
 
+  Printf(stdout, " ####### 22 - Classname : %s\n", Getattr(n, "name"));
+  // Printf(stdout, "   Symname  : %s\n", Getattr(n, "sym:name"));
+  // Printf(stdout, "   Nested Outer  : %s\n", Getattr(n, "nested:outer"));
+  // Printf(stdout, "   N Space  : %s\n", getNSpace());
+  ///////////////////////////////////////
+
+  proxyInterface = new ProxyInterface(ProxyInterface::interfaceType);
+  // proxyInterface->n = n;
+  proxyInterface->setClassName(Getattr(n,"sym:name"));
   emitter->enterClass(n);
   Language::classHandler(n);
+
+  /*
+  Printf(stdout, "##### 11 - Going to get children : %s\n", Getattr(n, "name"));
+  for (Node *p = firstChild(n); p; p = nextSibling(p))
+  {
+    if (Getattr(p, "kind") && Getattr(p, "access"))
+    {
+      if (Strcmp(Getattr(p, "kind"), "variable") == 0 && Strcmp(Getattr(p, "access"), "public") == 0)
+      // if (Strcmp(Getattr(p, "kind"), "variable") == 0 )
+      {
+        Printf(stdout, "    ##### 11 - Name : %s\n", Getattr(p, "name"));
+        Printf(stdout, "    ##### 11 - Kind : %s\n", Getattr(p, "kind"));
+        Printf(stdout, "    ##### 11 - Access : %s\n", Getattr(p, "access"));
+        Printf(stdout, "    ##### 11 - type : %s\n\n\n", Getattr(p, "type"));
+        for (Node *j = Getattr(p, "sym:symtab"); j; j = nextSibling(j))
+        {
+          Printf(stdout, "       ##### 11 - Name : %s\n", Getattr(j, "name"));
+          Printf(stdout, "       ##### 11 - type : %s\n\n\n", Getattr(j, "type"));
+        }
+      }
+    }
+  }
+  */
+  Printf(proxyInterface->baseClassName, "%s", getBaseClass(n));
+  Printf(stdout, "###### 22 - Going to generate code for %s\n", Getattr(n, "sym:name"));
+  proxyInterface->generateProxy();
+  // emitProxyClassDefAndCPPCasts(n);
   emitter->exitClass(n);
+  delete proxyInterface;
+  proxyInterface = NULL;
 
   return SWIG_OK;
 }
 
-int JAVASCRIPT::fragmentDirective(Node *n) {
+bool isInsert(Node *n, char *section)
+{
+  if (Strcmp(nodeType(n), "insert") == 0 && Strcmp(Getattr(n, "section"), section) == 0)
+    return true;
+  return false;
+}
+
+Node *findInsert(Node *topNode, char *section)
+{
+  if (!topNode)
+  {
+    return NULL;
+  }
+
+  if (isInsert(topNode, section))
+  {
+    Printf(stdout, " FOUND Insert %s ================================================= 26\n", section);
+    Swig_print_node(topNode);
+    Printf(stdout, "Code : %s\n", Getattr(topNode, "code"));
+    Printf(stdout, "================================================= 26\n");
+    return topNode;
+  }
+
+  Node *currentNode = firstChild(topNode);
+  Node *returnNode = 0;
+  while (currentNode)
+  {
+    returnNode = findInsert(currentNode, section);
+    if (returnNode)
+    {
+      return returnNode;
+    }
+    currentNode = nextSibling(currentNode);
+  }
+  return NULL;
+}
+
+void JAVASCRIPT::generateBaseInterfaces(Node *topNode)
+{
+  proxyInterface = new ProxyInterface(ProxyInterface::interfaceType);
+  String *className = NewString("vector");
+  proxyInterface->setClassName(className);
+  Delete(className);
+  Printf(stdout, "================================================================ 25\n");
+  // SwigType *baseclassname = NewString("vector<(long)>");
+  // Node *n = classLookup(baseclassname);
+  // if (n) {
+  Swig_print_node(topNode);
+  Printf(stdout, "================================================================ 24\n");
+  // Find a template called vector
+  Node *templateNode = findTemplate(topNode, "vector");
+  // TODO : Protect the code with if
+  Node *insertCodeNode = findInsert(templateNode, "proxycode");
+  Printf(stdout, "Code : %s\n", Getattr(insertCodeNode, "code"));
+  proxyInterface->insertCode(Getattr(insertCodeNode, "code"));
+  // }
+  proxyInterface->generateProxy();
+  delete proxyInterface;
+  proxyInterface = NULL;
+
+  Printf(stdout, "================================================================ 25\n");
+}
+
+bool isTemplate(Node *n, char *name)
+{
+  if (Strcmp(nodeType(n), "template") == 0 && Strcmp(Getattr(n, "name"), name) == 0)
+    return true;
+  return false;
+}
+
+/**
+ * Try to find a template by name
+ */
+Node *JAVASCRIPT::findTemplate(Node *topNode, char *name)
+{
+  if (!topNode)
+  {
+    return NULL;
+  }
+
+  if (isTemplate(topNode, name))
+  {
+    Printf(stdout, " FOUND Template %s ================================================= 26\n", name);
+    Swig_print_node(topNode);
+    Printf(stdout, "================================================= 26\n");
+    return topNode;
+  }
+
+  Node *currentNode = firstChild(topNode);
+  Node *returnNode = 0;
+  while (currentNode)
+  {
+    returnNode = findTemplate(currentNode, name);
+    if (returnNode)
+    {
+      return returnNode;
+    }
+    currentNode = nextSibling(currentNode);
+  }
+  return NULL;
+}
+
+/**
+ * Executed by SWIG to manage a declared ++ public variable
+ *
+ * @param n The node representing the public variable
+ * @return status to swig decide what to do
+ */
+int JAVASCRIPT::membervariableHandler(Node *n)
+{
+  Printf(stdout, "      ===== Member variable (javascript) : %s \n", Getattr(n, "sym:name"));
+  Printf(stdout, "      ===== Original Member variable (javascript) : %s \n", Getattr(n, "name"));
+  Printf(stdout, "      ===== Access : %s \n", Getattr(n, "access"));
+  Printf(stdout, "      ===== TYPE : %s \n", Getattr(n, "type"));
+
+  String *typescriptProxyType = getTypescriptProxyType(n);
+  proxyInterface->addMemberVariable(n, typescriptProxyType);
+  Language::membervariableHandler(n);
+  return SWIG_OK;
+}
+
+/**
+ * Executed for each enum
+ *
+ * @param n The node that represents the enumerated
+ */
+int JAVASCRIPT::enumDeclaration(Node *n)
+{
+  Printf(stdout, "###### 20 1 - Enum : %s\n ", Getattr(n, "sym:name"));
+  proxyEnum = new ProxyInterface(ProxyInterface::enumType);
+  // proxyEnum->n = n;
+  proxyEnum->setClassName(Getattr(n,"sym:name"));
+  Language::enumDeclaration(n);
+  proxyEnum->generateProxy();
+  delete proxyEnum;
+  proxyEnum = NULL;
+  Printf(stdout, "###### 20 3 - Enum : %s\n ", Getattr(n, "sym:name"));
+  return SWIG_OK;
+}
+
+int JAVASCRIPT::enumvalueDeclaration(Node *n)
+{
+  Printf(stdout, "###### 20 2 - Enum declaration : %s\n ", Getattr(n, "sym:name"));
+  Printf(stdout, "###### 20 2 - Enum Value : %s\n", Getattr(n, "enumvalue"));
+  Printf(stdout, "###### 20 2 - Just Value : %s\n", Getattr(n, "value"));
+
+  if (proxyEnum)
+  {
+    proxyEnum->addEnumValue(n, Getattr(n, "enumvalue"));
+  }
+  return Language::enumvalueDeclaration(n);
+}
+
+/**
+ * Executed when a directive is inserted
+ * Check if the insertion is to be done as "proxycode" and if a class is
+ * being handled (classHandler executed) and if so, store the code in the
+ * object representation of the proxy
+ * If not, execute the standard Language insertDirective
+ *
+ * @param n The node representing the code
+ * @return SWIG result status
+ */
+int JAVASCRIPT::insertDirective(Node *n)
+{
+  String *code = Getattr(n, "code");
+  String *section = Getattr(n, "section");
+
+  if (proxyInterface && Cmp(section, "proxycode") == 0)
+  {
+    proxyInterface->insertCode(code);
+  }
+  else
+  {
+    return Language::insertDirective(n);
+  }
+  return SWIG_OK;
+}
+
+/**
+ * Obtain the information about the base class that a node extends
+ *
+ * @param n The node that represents a class
+ * @return the string representation of the base class name
+ */
+String *JAVASCRIPT::getBaseClass(Node *n)
+{
+  SwigType *c_baseclassname = NULL;
+  String *returnBaseClassName = NULL;
+
+  // Check if for this class (represented by the node), there is a typemap defining
+  // the class (in the target typescript language) that should be used as superclass
+  String *typemapLookupCppType = Getattr(n, "name");
+  Printf(stdout, "##### 9 - CPP Base Class %s\n", typemapLookupCppType);
+  String *typescriptTypemapBaseClassName = typemapLookup(n, "typescriptbase", typemapLookupCppType, WARN_NONE);
+  if (typescriptTypemapBaseClassName && Strcmp(typescriptTypemapBaseClassName, "") != 0)
+  {
+    Printf(stdout, "##### 9 - Base Class From typescriptbase : <%s>\n", typescriptTypemapBaseClassName);
+    return typescriptTypemapBaseClassName;
+  }
+
+  // Get the list of attributes of the node that contain
+  // several flavours of the classname
+  List *baselist = Getattr(n, "bases");
+  if (baselist)
+  {
+    Iterator base = First(baselist);
+    while (base.item)
+    {
+      if (!(GetFlag(base.item, "feature:ignore") || Getattr(base.item, "feature:interface")))
+      {
+        SwigType *baseclassname = Getattr(base.item, "name");
+        Printf(stdout, " ####### Base Classname : %s\n", baseclassname);
+        returnBaseClassName = NewString(baseclassname);
+        if (!c_baseclassname)
+        {
+          Printf(stdout, " ####### 15 Base Classname before : %s\n", baseclassname);
+          String *name = getProxyName(baseclassname);
+          Printf(stdout, " ####### 15 Base Classname after : %s\n", name);
+          if (name)
+          {
+            c_baseclassname = baseclassname;
+            returnBaseClassName = name;
+          }
+        }
+        else
+        {
+          /* Warn about multiple inheritance for additional base class(es) */
+          String *proxyclassname = Getattr(n, "classtypeobj");
+          Swig_warning(WARN_JAVA_MULTIPLE_INHERITANCE, Getfile(n), Getline(n),
+                       "Warning for %s, base %s ignored. Multiple inheritance is not supported in Java.\n", SwigType_namestr(proxyclassname), SwigType_namestr(baseclassname));
+        }
+      }
+      base = Next(base);
+    }
+  }
+  else
+  {
+    Printf(stdout, "------------------------------------- NO BASE CLASS FOR %s\n", Getattr(n, "sym:name"));
+    String *typemap_lookup_type = Getattr(n, "name");
+    Printf(stdout, "-------------- Typemap lookup type : %s\n", typemap_lookup_type);
+    const String *pure_baseclass = typemapLookup(n, "typescriptbase", typemap_lookup_type, WARN_NONE);
+    Printf(stdout, "-------------- Pure Base Class : %s\n", pure_baseclass);
+  }
+  Printf(stdout, "##### 9 - Base Class : %s for %s\n", returnBaseClassName, Getattr(n, "sym:name"));
+  return returnBaseClassName;
+}
+
+/* -----------------------------------------------------------------------------
+   * getProxyName()
+   *
+   * Test to see if a type corresponds to something wrapped with a proxy class.
+   * Return NULL if not otherwise the proxy class name, fully qualified with
+   * package name if the nspace feature is used, unless jnidescriptor is true as
+   * the package name is handled differently (unfortunately for legacy reasons).
+   * ----------------------------------------------------------------------------- */
+
+String *JAVASCRIPT::getProxyName(SwigType *t, bool jnidescriptor)
+{
+  String *proxyname = NULL;
+  // To remove
+  String *package = NULL;
+
+  // This node should be received as parameter because classLookup() exist in Language class
+  Node *n = classLookup(t);
+  if (!n)
+  {
+    n = enumLookup(t);
+    if (n)
+    {
+      Printf(stdout, "##### 23 - Enum type Found : %s\n", Getattr(n, "name"));
+    }
+    else
+    {
+      Printf(stdout, "#### 23 - Enum not found for %s\n", Getattr(t, "name"));
+    }
+  }
+  if (n)
+  {
+    Printf(stdout, "###### 10 - Class looked up : %s\n", Getattr(n, "name"));
+    proxyname = Getattr(n, "proxyname");
+    if (!proxyname || jnidescriptor)
+    {
+      String *nspace = Getattr(n, "sym:nspace");
+      String *symname = Copy(Getattr(n, "sym:name"));
+      if (symname && !GetFlag(n, "feature:flatnested"))
+      {
+        for (Node *outer_class = Getattr(n, "nested:outer"); outer_class; outer_class = Getattr(outer_class, "nested:outer"))
+        {
+          if (String *name = Getattr(outer_class, "sym:name"))
+          {
+            Push(symname, jnidescriptor ? "$" : ".");
+            Push(symname, name);
+          }
+          else
+            return NULL;
+        }
+      }
+      if (nspace)
+      {
+        if (package && !jnidescriptor)
+          proxyname = NewStringf("%s.%s.%s", package, nspace, symname);
+        else
+          proxyname = NewStringf("%s.%s", nspace, symname);
+      }
+      else
+      {
+        proxyname = Copy(symname);
+      }
+      if (!jnidescriptor)
+      {
+        Setattr(n, "proxyname", proxyname); // Cache it
+        Delete(proxyname);
+      }
+      Delete(symname);
+    }
+  }
+  Printf(stdout, "###### 8 : Proxy name : %s\n", proxyname);
+  return proxyname;
+}
+
+/* -----------------------------------------------------------------------------
+   * typemapLookup()
+   * n - for input only and must contain info for Getfile(n) and Getline(n) to work
+   * tmap_method - typemap method name
+   * type - typemap type to lookup
+   * warning - warning number to issue if no typemaps found
+   * typemap_attributes - the typemap attributes are attached to this node and will
+   *   also be used for temporary storage if non null
+   * return is never NULL, unlike Swig_typemap_lookup()
+   * ----------------------------------------------------------------------------- */
+
+String *JAVASCRIPT::typemapLookup(Node *n, const_String_or_char_ptr tmap_method, SwigType *type, int warning, Node *typemap_attributes)
+{
+  Node *node = !typemap_attributes ? NewHash() : typemap_attributes;
+  Setattr(node, "type", type);
+  Setfile(node, Getfile(n));
+  Setline(node, Getline(n));
+  Printf(stdout, "###### 1 - Trying to find typemap %s for %s on %s\n", tmap_method, type, Getattr(n, "sym:name"));
+  String *tm = Swig_typemap_lookup(tmap_method, node, "", 0);
+  if (!tm)
+  {
+    tm = empty_string;
+    if (warning != WARN_NONE)
+      Swig_warning(warning, Getfile(n), Getline(n), "No %s typemap defined for %s\n", tmap_method, SwigType_str(type, 0));
+    Printf(stdout, "###### 1 - NOT Found typemap for %s : %s\n", tmap_method, tm);
+  }
+  else
+  {
+    Printf(stdout, "###### 1 - Found typemap for %s : %s\n", tmap_method, tm);
+  }
+  if (!typemap_attributes)
+    Delete(node);
+  Printf(stdout, "###### 1 - Returned typemap for %s : %s\n", tmap_method, tm);
+  return tm;
+}
+
+/**
+ * Obtain the type that should be used in the TypeScript proxy declaration
+ *
+ * @param n The node representing C++ variable
+ * @return A pointer to a string containing the type that should be used
+ * verbatim in the TypeScript proxy
+ */
+String *JAVASCRIPT::getTypescriptProxyType(Node *n)
+{
+  // Obtain Proxy Type
+  String *typeFromTypemap;
+  if ((typeFromTypemap = Swig_typemap_lookup("typescripttype", n, "", 0)))
+  {
+    Printf(stdout, "##### 10 - Type is returned from typemap : %s \n", typeFromTypemap);
+    return typeFromTypemap;
+  }
+
+  SwigType *type = Getattr(n, "type");
+  Printf(stdout, "##### 19 - Type to be checked : %s \n", type);
+  String *typescriptType = getProxyName(type);
+  Printf(stdout, "##### 19 - Proxy Type : %s \n", typescriptType);
+  // String *substType = NewString("$classname");
+  // substituteClassnameSpecialVariable(type, substType, "$javaclassname");
+  // Printf(stdout, "##### 19 - SubstType Type : %s \n", substType);
+  return typescriptType;
+}
+
+/* -----------------------------------------------------------------------------
+   * substituteClassnameSpecialVariable()
+   * ----------------------------------------------------------------------------- */
+
+void JAVASCRIPT::substituteClassnameSpecialVariable(SwigType *classnametype, String *tm, const char *classnamespecialvariable, bool jnidescriptor)
+{
+  String *replacementname;
+
+  if (SwigType_isenum(classnametype))
+  {
+    String *enumname = getEnumName(classnametype, jnidescriptor);
+    if (enumname)
+    {
+      replacementname = Copy(enumname);
+    }
+    else
+    {
+      bool anonymous_enum = (Cmp(classnametype, "enum ") == 0);
+      if (anonymous_enum)
+      {
+        replacementname = NewString("int");
+      }
+      else
+      {
+        // An unknown enum - one that has not been parsed (neither a C enum forward reference nor a definition) or an ignored enum
+        replacementname = NewStringf("SWIGTYPE%s", SwigType_manglestr(classnametype));
+        Replace(replacementname, "enum ", "", DOH_REPLACE_ANY);
+        // Setattr(swig_types_hash, replacementname, classnametype);
+      }
+    }
+  }
+  else
+  {
+    String *classname = getProxyName(classnametype, jnidescriptor); // getProxyName() works for pointers to classes too
+    if (classname)
+    {
+      replacementname = Copy(classname);
+    }
+    else
+    {
+      // use $descriptor if SWIG does not know anything about this type. Note that any typedefs are resolved.
+      replacementname = NewStringf("SWIGTYPE%s", SwigType_manglestr(classnametype));
+
+      // Add to hash table so that the type wrapper classes can be created later
+      // Setattr(swig_types_hash, replacementname, classnametype);
+    }
+  }
+  if (jnidescriptor)
+    Replaceall(replacementname, ".", "/");
+  Printf(stdout, "##### 10 Class name replacement variable : %s\n", replacementname);
+  Replaceall(tm, classnamespecialvariable, replacementname);
+
+  Delete(replacementname);
+}
+
+/* -----------------------------------------------------------------------------
+   * getEnumName()
+   *
+   * If jnidescriptor is set, inner class names are separated with '$' otherwise a '.'
+   * and the package is also not added to the name.
+   * ----------------------------------------------------------------------------- */
+
+String *JAVASCRIPT::getEnumName(SwigType *t, bool jnidescriptor)
+{
+  Node *enumname = NULL;
+  Node *n = enumLookup(t);
+  if (n)
+  {
+    enumname = Getattr(n, "enumname");
+    if (!enumname || jnidescriptor)
+    {
+      String *symname = Getattr(n, "sym:name");
+      if (symname)
+      {
+        // Add in class scope when referencing enum if not a global enum
+        String *scopename_prefix = Swig_scopename_prefix(Getattr(n, "name"));
+        String *proxyname = 0;
+        if (scopename_prefix)
+        {
+          proxyname = getProxyName(scopename_prefix, jnidescriptor);
+        }
+        if (proxyname)
+        {
+          const char *class_separator = jnidescriptor ? "$" : ".";
+          enumname = NewStringf("%s%s%s", proxyname, class_separator, symname);
+        }
+        else
+        {
+          // global enum or enum in a namespace
+          String *nspace = Getattr(n, "sym:nspace");
+          if (nspace)
+          {
+            // if (package && !jnidescriptor)
+            //   enumname = NewStringf("%s.%s.%s", package, nspace, symname);
+            // else
+            enumname = NewStringf("%s.%s", nspace, symname);
+          }
+          else
+          {
+            enumname = Copy(symname);
+          }
+        }
+        if (!jnidescriptor)
+        {
+          Setattr(n, "enumname", enumname); // Cache it
+          Delete(enumname);
+        }
+        Delete(scopename_prefix);
+      }
+    }
+  }
+
+  return enumname;
+}
+
+int JAVASCRIPT::fragmentDirective(Node *n)
+{
 
   // catch all fragment directives that have "templates" as location
   // and register them at the emitter.
   String *section = Getattr(n, "section");
 
-  if (Equal(section, "templates") && !ImportMode) {
+  if (Equal(section, "templates") && !ImportMode)
+  {
     emitter->registerTemplate(Getattr(n, "value"), Getattr(n, "code"));
-  } else {
+  }
+  else
+  {
     return Language::fragmentDirective(n);
   }
 
   return SWIG_OK;
 }
 
-String *JAVASCRIPT::getNSpace() const {
+String *JAVASCRIPT::getNSpace() const
+{
   return Language::getNSpace();
 }
 
@@ -501,8 +1185,12 @@ String *JAVASCRIPT::getNSpace() const {
  * Wrapper code generation essentially starts from here
  * --------------------------------------------------------------------- */
 
-int JAVASCRIPT::top(Node *n) {
+int JAVASCRIPT::top(Node *n)
+{
   emitter->initialize(n);
+  imclass_cppcasts_code = NewString("");
+  Printf(stdout, "Top Node : %s \n", Getattr(n, "name"));
+  generateBaseInterfaces(n);
 
   Language::top(n);
 
@@ -512,13 +1200,12 @@ int JAVASCRIPT::top(Node *n) {
   return SWIG_OK;
 }
 
-static const char *usage = (char *) "\
+static const char *usage = (char *)"\
 Javascript Options (available with -javascript)\n\
      -jsc                   - creates a JavascriptCore extension \n\
      -v8                    - creates a v8 extension \n\
      -node                  - creates a node.js extension \n\
      -debug-codetemplates   - generates information about the origin of code templates\n";
-
 
 /* ---------------------------------------------------------------------
  * main()
@@ -526,78 +1213,98 @@ Javascript Options (available with -javascript)\n\
  * Entry point for the JAVASCRIPT module
  * --------------------------------------------------------------------- */
 
-void JAVASCRIPT::main(int argc, char *argv[]) {
+void JAVASCRIPT::main(int argc, char *argv[])
+{
   // Set javascript subdirectory in SWIG library
   SWIG_library_directory("javascript");
 
   int engine = -1;
 
-  for (int i = 1; i < argc; i++) {
-    if (argv[i]) {
-      if (strcmp(argv[i], "-v8") == 0) {
-      	if (engine != -1) {
-	  Printf(stderr, ERR_MSG_ONLY_ONE_ENGINE_PLEASE);
-	  SWIG_exit(-1);
-      	}
-	Swig_mark_arg(i);
-	engine = JSEmitter::V8;
-      } else if (strcmp(argv[i], "-jsc") == 0) {
-      	if (engine != -1) {
-	  Printf(stderr, ERR_MSG_ONLY_ONE_ENGINE_PLEASE);
-	  SWIG_exit(-1);
-      	}
-	Swig_mark_arg(i);
-	engine = JSEmitter::JavascriptCore;
-      } else if (strcmp(argv[i], "-node") == 0) {
-      	if (engine != -1) {
-	  Printf(stderr, ERR_MSG_ONLY_ONE_ENGINE_PLEASE);
-	  SWIG_exit(-1);
-      	}
-	Swig_mark_arg(i);
-	engine = JSEmitter::NodeJS;
-      } else if (strcmp(argv[i], "-debug-codetemplates") == 0) {
-	Swig_mark_arg(i);
-	js_template_enable_debug = true;
-      } else if (strcmp(argv[i], "-help") == 0) {
-	fputs(usage, stdout);
-	return;
+  for (int i = 1; i < argc; i++)
+  {
+    if (argv[i])
+    {
+      if (strcmp(argv[i], "-v8") == 0)
+      {
+        if (engine != -1)
+        {
+          Printf(stderr, ERR_MSG_ONLY_ONE_ENGINE_PLEASE);
+          SWIG_exit(-1);
+        }
+        Swig_mark_arg(i);
+        engine = JSEmitter::V8;
+      }
+      else if (strcmp(argv[i], "-jsc") == 0)
+      {
+        if (engine != -1)
+        {
+          Printf(stderr, ERR_MSG_ONLY_ONE_ENGINE_PLEASE);
+          SWIG_exit(-1);
+        }
+        Swig_mark_arg(i);
+        engine = JSEmitter::JavascriptCore;
+      }
+      else if (strcmp(argv[i], "-node") == 0)
+      {
+        if (engine != -1)
+        {
+          Printf(stderr, ERR_MSG_ONLY_ONE_ENGINE_PLEASE);
+          SWIG_exit(-1);
+        }
+        Swig_mark_arg(i);
+        engine = JSEmitter::NodeJS;
+      }
+      else if (strcmp(argv[i], "-debug-codetemplates") == 0)
+      {
+        Swig_mark_arg(i);
+        js_template_enable_debug = true;
+      }
+      else if (strcmp(argv[i], "-help") == 0)
+      {
+        fputs(usage, stdout);
+        return;
       }
     }
+
+    Swig_interface_feature_enable();
   }
 
-  switch (engine) {
+  switch (engine)
+  {
   case JSEmitter::V8:
+  {
+    emitter = swig_javascript_create_V8Emitter();
+    Preprocessor_define("SWIG_JAVASCRIPT_V8 1", 0);
+    SWIG_library_directory("javascript/v8");
+    // V8 API is C++, so output must be C++ compatible even when wrapping C code
+    if (!cparse_cplusplus)
     {
-      emitter = swig_javascript_create_V8Emitter();
-      Preprocessor_define("SWIG_JAVASCRIPT_V8 1", 0);
-      SWIG_library_directory("javascript/v8");
-      // V8 API is C++, so output must be C++ compatible even when wrapping C code
-      if (!cparse_cplusplus) {
-	Swig_cparse_cplusplusout(1);
-      }
-      break;
+      Swig_cparse_cplusplusout(1);
     }
+    break;
+  }
   case JSEmitter::JavascriptCore:
-    {
-      emitter = swig_javascript_create_JSCEmitter();
-      Preprocessor_define("SWIG_JAVASCRIPT_JSC 1", 0);
-      SWIG_library_directory("javascript/jsc");
-      break;
-    }
+  {
+    emitter = swig_javascript_create_JSCEmitter();
+    Preprocessor_define("SWIG_JAVASCRIPT_JSC 1", 0);
+    SWIG_library_directory("javascript/jsc");
+    break;
+  }
   case JSEmitter::NodeJS:
-    {
-      emitter = swig_javascript_create_V8Emitter();
-      Preprocessor_define("SWIG_JAVASCRIPT_V8 1", 0);
-      Preprocessor_define("BUILDING_NODE_EXTENSION 1", 0);
-      SWIG_library_directory("javascript/v8");
-      break;
-    }
+  {
+    Printf(stdout, "JS Emitter NodeJS\n");
+    emitter = swig_javascript_create_V8Emitter();
+    Preprocessor_define("SWIG_JAVASCRIPT_V8 1", 0);
+    Preprocessor_define("BUILDING_NODE_EXTENSION 1", 0);
+    SWIG_library_directory("javascript/v8");
+    break;
+  }
   default:
-    {
-      Printf(stderr, "SWIG Javascript: Unknown engine. Please specify one of '-jsc', '-v8' or '-node'.\n");
-      SWIG_exit(-1);
-      break;
-    }
+  {
+    Printf(stderr, "SWIG Javascript: Unknown engine. Please specify one of '-jsc', '-v8' or '-node'.\n");
+    SWIG_exit(-1);
+    break;
+  }
   }
 
   // Add a symbol to the parser for conditional compilation
@@ -616,11 +1323,13 @@ void JAVASCRIPT::main(int argc, char *argv[]) {
  * swig_javascript()    - Instantiate module
  * ----------------------------------------------------------------------------- */
 
-static Language *new_swig_javascript() {
+static Language *new_swig_javascript()
+{
   return new JAVASCRIPT();
 }
 
-extern "C" Language *swig_javascript(void) {
+extern "C" Language *swig_javascript(void)
+{
   return new_swig_javascript();
 }
 
@@ -633,14 +1342,16 @@ extern "C" Language *swig_javascript(void) {
  * ----------------------------------------------------------------------------- */
 
 JSEmitter::JSEmitter(JSEmitter::JSEngine engine)
-:  engine(engine), templates(NewHash()), namespaces(NULL), current_namespace(NULL), defaultResultName(NewString("result")), f_wrappers(NULL) {
+    : engine(engine), templates(NewHash()), namespaces(NULL), current_namespace(NULL), defaultResultName(NewString("result")), f_wrappers(NULL)
+{
 }
 
 /* -----------------------------------------------------------------------------
  * ~JSEmitter()
  * ----------------------------------------------------------------------------- */
 
-JSEmitter::~JSEmitter() {
+JSEmitter::~JSEmitter()
+{
   Delete(templates);
 }
 
@@ -650,8 +1361,10 @@ JSEmitter::~JSEmitter() {
  *  Note: this is used only by JAVASCRIPT::fragmentDirective().
  * ----------------------------------------------------------------------------- */
 
-int JSEmitter::registerTemplate(const String *name, const String *code) {
-  if (!State::IsSet(state.globals(HAS_TEMPLATES))) {
+int JSEmitter::registerTemplate(const String *name, const String *code)
+{
+  if (!State::IsSet(state.globals(HAS_TEMPLATES)))
+  {
     SetFlag(state.globals(), HAS_TEMPLATES);
   }
   return Setattr(templates, name, code);
@@ -661,10 +1374,12 @@ int JSEmitter::registerTemplate(const String *name, const String *code) {
  * JSEmitter::getTemplate() :  Provides a registered code template
  * ----------------------------------------------------------------------------- */
 
-Template JSEmitter::getTemplate(const String *name) {
+Template JSEmitter::getTemplate(const String *name)
+{
   String *templ = Getattr(templates, name);
 
-  if (!templ) {
+  if (!templ)
+  {
     Printf(stderr, "Could not find template %s\n.", name);
     SWIG_exit(EXIT_FAILURE);
   }
@@ -673,13 +1388,16 @@ Template JSEmitter::getTemplate(const String *name) {
   return t;
 }
 
-JSEmitterState & JSEmitter::getState() {
+JSEmitterState &JSEmitter::getState()
+{
   return state;
 }
 
-int JSEmitter::initialize(Node * /*n */ ) {
+int JSEmitter::initialize(Node * /*n */)
+{
 
-  if (namespaces != NULL) {
+  if (namespaces != NULL)
+  {
     Delete(namespaces);
   }
   namespaces = NewHash();
@@ -697,8 +1415,10 @@ int JSEmitter::initialize(Node * /*n */ ) {
  * skipIgnoredArgs()
  * --------------------------------------------------------------------- */
 
-Parm *JSEmitter::skipIgnoredArgs(Parm *p) {
-  while (checkAttribute(p, "tmap:in:numinputs", "0")) {
+Parm *JSEmitter::skipIgnoredArgs(Parm *p)
+{
+  while (checkAttribute(p, "tmap:in:numinputs", "0"))
+  {
     p = Getattr(p, "tmap:in:next");
   }
   return p;
@@ -711,12 +1431,15 @@ Parm *JSEmitter::skipIgnoredArgs(Parm *p) {
  *       supported.
  * ----------------------------------------------------------------------------- */
 
-Node *JSEmitter::getBaseClass(Node *n) {
+Node *JSEmitter::getBaseClass(Node *n)
+{
   // retrieve the first base class that is not %ignored
   List *baselist = Getattr(n, "bases");
-  if (baselist) {
+  if (baselist)
+  {
     Iterator base = First(baselist);
-    while (base.item && GetFlag(base.item, "feature:ignore")) {
+    while (base.item && GetFlag(base.item, "feature:ignore"))
+    {
       base = Next(base);
     }
     return base.item;
@@ -724,59 +1447,77 @@ Node *JSEmitter::getBaseClass(Node *n) {
   return NULL;
 }
 
- /* -----------------------------------------------------------------------------
+/* -----------------------------------------------------------------------------
   * JSEmitter::emitWrapperFunction() :  dispatches emitter functions.
   *
   * This allows to have small sized, dedicated emitting functions.
   * All state dependent branching is done here.
   * ----------------------------------------------------------------------------- */
 
-int JSEmitter::emitWrapperFunction(Node *n) {
+int JSEmitter::emitWrapperFunction(Node *n)
+{
   int ret = SWIG_OK;
 
   String *kind = Getattr(n, "kind");
 
-  if (kind) {
+  if (kind)
+  {
 
     if (Equal(kind, "function")
-	// HACK: sneaky.ctest revealed that typedef'd (global) functions must be
-	// detected via the 'view' attribute.
-	|| (Equal(kind, "variable") && Equal(Getattr(n, "view"), "globalfunctionHandler"))
-	) {
+        // HACK: sneaky.ctest revealed that typedef'd (global) functions must be
+        // detected via the 'view' attribute.
+        || (Equal(kind, "variable") && Equal(Getattr(n, "view"), "globalfunctionHandler")))
+    {
       bool is_member = GetFlag(n, "ismember") != 0 || GetFlag(n, "feature:extend") != 0;
       bool is_static = GetFlag(state.function(), IS_STATIC) != 0;
       ret = emitFunction(n, is_member, is_static);
-    } else if (Cmp(kind, "variable") == 0) {
+    }
+    else if (Cmp(kind, "variable") == 0)
+    {
       bool is_static = GetFlag(state.variable(), IS_STATIC) != 0;
       // HACK: smartpointeraccessed static variables are not treated as statics
-      if (GetFlag(n, "allocate:smartpointeraccess")) {
-	is_static = false;
+      if (GetFlag(n, "allocate:smartpointeraccess"))
+      {
+        is_static = false;
       }
 
       bool is_member = GetFlag(n, "ismember") != 0;
       bool is_setter = GetFlag(n, "memberset") != 0 || GetFlag(n, "varset") != 0;
       bool is_getter = GetFlag(n, "memberget") != 0 || GetFlag(n, "varget") != 0;
-      if (is_setter) {
-	ret = emitSetter(n, is_member, is_static);
-      } else if (is_getter) {
-	ret = emitGetter(n, is_member, is_static);
-      } else {
-	Swig_print_node(n);
+      if (is_setter)
+      {
+        ret = emitSetter(n, is_member, is_static);
       }
-
-    } else {
+      else if (is_getter)
+      {
+        ret = emitGetter(n, is_member, is_static);
+      }
+      else
+      {
+        Swig_print_node(n);
+      }
+    }
+    else
+    {
       Printf(stderr, "Warning: unsupported wrapper function type\n");
       Swig_print_node(n);
       ret = SWIG_ERROR;
     }
-  } else {
+  }
+  else
+  {
     String *view = Getattr(n, "view");
 
-    if (Cmp(view, "constructorHandler") == 0) {
+    if (Cmp(view, "constructorHandler") == 0)
+    {
       ret = emitCtor(n);
-    } else if (Cmp(view, "destructorHandler") == 0) {
+    }
+    else if (Cmp(view, "destructorHandler") == 0)
+    {
       ret = emitDtor(n);
-    } else {
+    }
+    else
+    {
       Printf(stderr, "Warning: unsupported wrapper function type");
       Swig_print_node(n);
       ret = SWIG_ERROR;
@@ -786,7 +1527,8 @@ int JSEmitter::emitWrapperFunction(Node *n) {
   return ret;
 }
 
-int JSEmitter::emitNativeFunction(Node *n) {
+int JSEmitter::emitNativeFunction(Node *n)
+{
   String *wrapname = Getattr(n, "wrap:name");
   enterFunction(n);
   state.function(WRAPPER_NAME, wrapname);
@@ -794,7 +1536,8 @@ int JSEmitter::emitNativeFunction(Node *n) {
   return SWIG_OK;
 }
 
-int JSEmitter::enterClass(Node *n) {
+int JSEmitter::enterClass(Node *n)
+{
   state.clazz(RESET);
   state.clazz(NAME, Getattr(n, "sym:name"));
   state.clazz("nspace", current_namespace);
@@ -826,44 +1569,54 @@ int JSEmitter::enterClass(Node *n) {
   return SWIG_OK;
 }
 
-int JSEmitter::enterFunction(Node *n) {
+int JSEmitter::enterFunction(Node *n)
+{
   state.function(RESET);
   state.function(NAME, Getattr(n, "sym:name"));
-  if (Equal(Getattr(n, "storage"), "static")) {
+  if (Equal(Getattr(n, "storage"), "static"))
+  {
     SetFlag(state.function(), IS_STATIC);
   }
   return SWIG_OK;
 }
 
-int JSEmitter::enterVariable(Node *n) {
+int JSEmitter::enterVariable(Node *n)
+{
   // reset the state information for variables.
   state.variable(RESET);
 
   // Retrieve a pure symbol name. Using 'sym:name' as a basis, as it considers %renamings.
-  if (Equal(Getattr(n, "view"), "memberconstantHandler")) {
+  if (Equal(Getattr(n, "view"), "memberconstantHandler"))
+  {
     // Note: this is kind of hacky/experimental
     // For constants/enums 'sym:name' contains e.g., 'Foo_Hello' instead of 'Hello'
     state.variable(NAME, Getattr(n, "memberconstantHandler:sym:name"));
-  } else {
+  }
+  else
+  {
     state.variable(NAME, Swig_scopename_last(Getattr(n, "sym:name")));
   }
 
-  if (Equal(Getattr(n, "storage"), "static")) {
+  if (Equal(Getattr(n, "storage"), "static"))
+  {
     SetFlag(state.variable(), IS_STATIC);
   }
 
-  if (!Language::instance()->is_assignable(n)) {
+  if (!Language::instance()->is_assignable(n))
+  {
     SetFlag(state.variable(), IS_IMMUTABLE);
   }
   // FIXME: test "arrays_global" does not compile with that as it is not allowed to assign to char[]
-  if (Equal(Getattr(n, "type"), "a().char")) {
+  if (Equal(Getattr(n, "type"), "a().char"))
+  {
     SetFlag(state.variable(), IS_IMMUTABLE);
   }
 
   return SWIG_OK;
 }
 
-int JSEmitter::emitCtor(Node *n) {
+int JSEmitter::emitCtor(Node *n)
+{
 
   Wrapper *wrapper = NewWrapper();
 
@@ -872,7 +1625,8 @@ int JSEmitter::emitCtor(Node *n) {
   Template t_ctor(getTemplate("js_ctor"));
 
   String *wrap_name = Swig_name_wrapper(Getattr(n, "sym:name"));
-  if (is_overloaded) {
+  if (is_overloaded)
+  {
     t_ctor = getTemplate("js_overloaded_ctor");
     Append(wrap_name, Getattr(n, "sym:overname"));
   }
@@ -912,24 +1666,29 @@ int JSEmitter::emitCtor(Node *n) {
   DelWrapper(wrapper);
 
   // create a dispatching ctor
-  if (is_overloaded) {
-    if (!Getattr(n, "sym:nextSibling")) {
+  if (is_overloaded)
+  {
+    if (!Getattr(n, "sym:nextSibling"))
+    {
       String *wrap_name = Swig_name_wrapper(Getattr(n, "sym:name"));
       Template t_mainctor(getTemplate("js_ctor_dispatcher"));
       t_mainctor.replace("$jswrapper", wrap_name)
-	  .replace("$jsmangledname", state.clazz(NAME_MANGLED))
-	  .replace("$jsdispatchcases", state.clazz(CTOR_DISPATCHERS))
-	  .pretty_print(f_wrappers);
+          .replace("$jsmangledname", state.clazz(NAME_MANGLED))
+          .replace("$jsdispatchcases", state.clazz(CTOR_DISPATCHERS))
+          .pretty_print(f_wrappers);
       state.clazz(CTOR, wrap_name);
     }
-  } else {
+  }
+  else
+  {
     state.clazz(CTOR, wrap_name);
   }
 
   return SWIG_OK;
 }
 
-int JSEmitter::emitDtor(Node *n) {
+int JSEmitter::emitDtor(Node *n)
+{
 
   String *wrap_name = Swig_name_wrapper(Getattr(n, "sym:name"));
 
@@ -969,18 +1728,23 @@ int JSEmitter::emitDtor(Node *n) {
    The Ruby implementation seems to have an explicit check for if(Extend) and explicitly generates the code, so that's what I'm doing here.
    The Ruby implementation does other stuff which I omit.
    */
-  if (Extend) {
+  if (Extend)
+  {
     String *wrap = Getattr(n, "wrap:code");
-    if (wrap) {
+    if (wrap)
+    {
       Printv(f_wrappers, wrap, NIL);
     }
   }
   // HACK: this is only for the v8 emitter. maybe set an attribute wrap:action of node
   // TODO: generate dtors more similar to other wrappers
   // EW: I think this is wrong. delete should only be used when new was used to create. If malloc was used, free needs to be used.
-  if (SwigType_isarray(type)) {
+  if (SwigType_isarray(type))
+  {
     Printf(free, "delete [] (%s)", ctype);
-  } else {
+  }
+  else
+  {
     Printf(free, "delete (%s)", ctype);
   }
 
@@ -1026,24 +1790,27 @@ int JSEmitter::emitDtor(Node *n) {
      Maybe the fix for the destructor_action always true problem is that this is supposed to be embedded in the if(Extend) block above.
      But I don't fully understand the conditions of any of these things, and since it works for the moment, I don't want to break more stuff.
    */
-  if (destructor_action) {
+  if (destructor_action)
+  {
     Template t_dtor = getTemplate("js_dtoroverride");
     state.clazz(DTOR, wrap_name);
     t_dtor.replace("${classname_mangled}", state.clazz(NAME_MANGLED))
-	.replace("$jswrapper", wrap_name)
-	.replace("$jsfree", free)
-	.replace("$jstype", ctype);
+        .replace("$jswrapper", wrap_name)
+        .replace("$jsfree", free)
+        .replace("$jstype", ctype);
 
     t_dtor.replace("${destructor_action}", destructor_action);
     Wrapper_pretty_print(t_dtor.str(), f_wrappers);
-  } else {
+  }
+  else
+  {
     Template t_dtor = getTemplate("js_dtor");
     state.clazz(DTOR, wrap_name);
     t_dtor.replace("$jsmangledname", state.clazz(NAME_MANGLED))
-	.replace("$jswrapper", wrap_name)
-	.replace("$jsfree", free)
-	.replace("$jstype", ctype)
-	.pretty_print(f_wrappers);
+        .replace("$jswrapper", wrap_name)
+        .replace("$jsfree", free)
+        .replace("$jstype", ctype)
+        .pretty_print(f_wrappers);
   }
 
   Delete(p_classtype);
@@ -1053,7 +1820,8 @@ int JSEmitter::emitDtor(Node *n) {
   return SWIG_OK;
 }
 
-int JSEmitter::emitGetter(Node *n, bool is_member, bool is_static) {
+int JSEmitter::emitGetter(Node *n, bool is_member, bool is_static)
+{
   Wrapper *wrapper = NewWrapper();
   Template t_getter(getTemplate("js_getter"));
 
@@ -1084,10 +1852,12 @@ int JSEmitter::emitGetter(Node *n, bool is_member, bool is_static) {
   return SWIG_OK;
 }
 
-int JSEmitter::emitSetter(Node *n, bool is_member, bool is_static) {
+int JSEmitter::emitSetter(Node *n, bool is_member, bool is_static)
+{
 
   // skip variables that are immutable
-  if (State::IsSet(state.variable(IS_IMMUTABLE))) {
+  if (State::IsSet(state.variable(IS_IMMUTABLE)))
+  {
     return SWIG_OK;
   }
 
@@ -1126,12 +1896,14 @@ int JSEmitter::emitSetter(Node *n, bool is_member, bool is_static) {
  * JSEmitter::emitConstant() :  triggers code generation for constants
  * ----------------------------------------------------------------------------- */
 
-int JSEmitter::emitConstant(Node *n) {
+int JSEmitter::emitConstant(Node *n)
+{
   // HACK: somehow it happened under Mac OS X that before everything started
   // a lot of SWIG internal constants were emitted
   // This didn't happen on other platforms yet...
   // we ignore those premature definitions
-  if (!State::IsSet(state.globals(HAS_TEMPLATES))) {
+  if (!State::IsSet(state.globals(HAS_TEMPLATES)))
+  {
     return SWIG_ERROR;
   }
 
@@ -1144,7 +1916,8 @@ int JSEmitter::emitConstant(Node *n) {
   String *value = rawval ? rawval : Getattr(n, "value");
 
   // HACK: forcing usage of cppvalue for v8 (which turned out to fix typdef_struct.i, et. al)
-  if (State::IsSet(state.globals(FORCE_CPP)) && Getattr(n, "cppvalue") != NULL) {
+  if (State::IsSet(state.globals(FORCE_CPP)) && Getattr(n, "cppvalue") != NULL)
+  {
     value = Getattr(n, "cppvalue");
   }
 
@@ -1158,7 +1931,8 @@ int JSEmitter::emitConstant(Node *n) {
   Setattr(n, "wrap:name", wname);
 
   // special treatment of member pointers
-  if (SwigType_type(type) == T_MPOINTER) {
+  if (SwigType_type(type) == T_MPOINTER)
+  {
     // TODO: this could go into a code-template
     String *mpointer_wname = NewString("");
     Printf(mpointer_wname, "_wrapConstant_%s", iname);
@@ -1183,7 +1957,8 @@ int JSEmitter::emitConstant(Node *n) {
   return SWIG_OK;
 }
 
-int JSEmitter::emitFunction(Node *n, bool is_member, bool is_static) {
+int JSEmitter::emitFunction(Node *n, bool is_member, bool is_static)
+{
   Wrapper *wrapper = NewWrapper();
   Template t_function(getTemplate("js_function"));
 
@@ -1192,7 +1967,8 @@ int JSEmitter::emitFunction(Node *n, bool is_member, bool is_static) {
   // prepare the function wrapper name
   String *iname = Getattr(n, "sym:name");
   String *wrap_name = Swig_name_wrapper(iname);
-  if (is_overloaded) {
+  if (is_overloaded)
+  {
     t_function = getTemplate("js_overloaded_function");
     Append(wrap_name, Getattr(n, "sym:overname"));
   }
@@ -1221,29 +1997,31 @@ int JSEmitter::emitFunction(Node *n, bool is_member, bool is_static) {
       .replace("$jsargcount", Getattr(n, ARGCOUNT))
       .pretty_print(f_wrappers);
 
-
   DelWrapper(wrapper);
 
   return SWIG_OK;
 }
 
-int JSEmitter::emitFunctionDispatcher(Node *n, bool /*is_member */ ) {
+int JSEmitter::emitFunctionDispatcher(Node *n, bool /*is_member */)
+{
   Wrapper *wrapper = NewWrapper();
 
   // Generate call list, go to first node
   Node *sibl = n;
 
   while (Getattr(sibl, "sym:previousSibling"))
-    sibl = Getattr(sibl, "sym:previousSibling");	// go all the way up
+    sibl = Getattr(sibl, "sym:previousSibling"); // go all the way up
 
-  do {
+  do
+  {
     String *siblname = Getattr(sibl, "wrap:name");
 
-    if (siblname) {
+    if (siblname)
+    {
       // handle function overloading
       Template t_dispatch_case = getTemplate("js_function_dispatch_case");
       t_dispatch_case.replace("$jswrapper", siblname)
-	  .replace("$jsargcount", Getattr(sibl, ARGCOUNT));
+          .replace("$jsargcount", Getattr(sibl, ARGCOUNT));
 
       Append(wrapper->code, t_dispatch_case.str());
     }
@@ -1268,11 +2046,9 @@ int JSEmitter::emitFunctionDispatcher(Node *n, bool /*is_member */ ) {
 
   String *new_string = NewStringf("%s_%s", class_name, wrap_name);
   String *final_wrap_name = Swig_name_wrapper(new_string);
-     
+
   Setattr(n, "wrap:name", final_wrap_name);
   state.function(WRAPPER_NAME, final_wrap_name);
-
-
 
   t_function.replace("$jslocals", wrapper->locals)
       .replace("$jscode", wrapper->code);
@@ -1288,30 +2064,38 @@ int JSEmitter::emitFunctionDispatcher(Node *n, bool /*is_member */ ) {
   return SWIG_OK;
 }
 
-String *JSEmitter::emitInputTypemap(Node *n, Parm *p, Wrapper *wrapper, String *arg) {
+String *JSEmitter::emitInputTypemap(Node *n, Parm *p, Wrapper *wrapper, String *arg)
+{
   // Get input typemap for current param
   String *tm = Getattr(p, "tmap:in");
   SwigType *type = Getattr(p, "type");
 
-  if (tm != NULL) {
+  if (tm != NULL)
+  {
     Replaceall(tm, "$input", arg);
     Setattr(p, "emit:input", arg);
     // do replacements for built-in variables
-    if (Getattr(p, "wrap:disown") || (Getattr(p, "tmap:in:disown"))) {
+    if (Getattr(p, "wrap:disown") || (Getattr(p, "tmap:in:disown")))
+    {
       Replaceall(tm, "$disown", "SWIG_POINTER_DISOWN");
-    } else {
+    }
+    else
+    {
       Replaceall(tm, "$disown", "0");
     }
     Replaceall(tm, "$symname", Getattr(n, "sym:name"));
     Printf(wrapper->code, "%s\n", tm);
-  } else {
+  }
+  else
+  {
     Swig_warning(WARN_TYPEMAP_IN_UNDEF, input_file, line_number, "Unable to use type %s as a function argument.\n", SwigType_str(type, 0));
   }
 
   return tm;
 }
 
-void JSEmitter::marshalOutput(Node *n, ParmList *params, Wrapper *wrapper, String *actioncode, const String *cresult, bool emitReturnVariable) {
+void JSEmitter::marshalOutput(Node *n, ParmList *params, Wrapper *wrapper, String *actioncode, const String *cresult, bool emitReturnVariable)
+{
   SwigType *type = Getattr(n, "type");
   String *tm;
   Parm *p;
@@ -1326,31 +2110,43 @@ void JSEmitter::marshalOutput(Node *n, ParmList *params, Wrapper *wrapper, Strin
   tm = Swig_typemap_lookup_out("out", n, cresult, wrapper, actioncode);
   bool should_own = GetFlag(n, "feature:new") != 0;
 
-  if (tm) {
+  if (tm)
+  {
     Replaceall(tm, "$objecttype", Swig_scopename_last(SwigType_str(SwigType_strip_qualifiers(type), 0)));
 
-    if (should_own) {
+    if (should_own)
+    {
       Replaceall(tm, "$owner", "SWIG_POINTER_OWN");
-    } else {
+    }
+    else
+    {
       Replaceall(tm, "$owner", "0");
     }
     Append(wrapper->code, tm);
 
-    if (Len(tm) > 0) {
+    if (Len(tm) > 0)
+    {
       Printf(wrapper->code, "\n");
     }
-  } else {
+  }
+  else
+  {
     Swig_warning(WARN_TYPEMAP_OUT_UNDEF, input_file, line_number, "Unable to use return type %s in function %s.\n", SwigType_str(type, 0), Getattr(n, "name"));
   }
 
-  if (params) {
-    for (p = params; p;) {
-      if ((tm = Getattr(p, "tmap:argout"))) {
-	Replaceall(tm, "$input", Getattr(p, "emit:input"));
-	Printv(wrapper->code, tm, "\n", NIL);
-	p = Getattr(p, "tmap:argout:next");
-      } else {
-	p = nextSibling(p);
+  if (params)
+  {
+    for (p = params; p;)
+    {
+      if ((tm = Getattr(p, "tmap:argout")))
+      {
+        Replaceall(tm, "$input", Getattr(p, "emit:input"));
+        Printv(wrapper->code, tm, "\n", NIL);
+        p = Getattr(p, "tmap:argout:next");
+      }
+      else
+      {
+        p = nextSibling(p);
       }
     }
   }
@@ -1358,45 +2154,56 @@ void JSEmitter::marshalOutput(Node *n, ParmList *params, Wrapper *wrapper, Strin
   Replaceall(wrapper->code, "$result", "jsresult");
 }
 
-void JSEmitter::emitCleanupCode(Node *n, Wrapper *wrapper, ParmList *params) {
+void JSEmitter::emitCleanupCode(Node *n, Wrapper *wrapper, ParmList *params)
+{
   Parm *p;
   String *tm;
 
-  for (p = params; p;) {
-    if ((tm = Getattr(p, "tmap:freearg"))) {
+  for (p = params; p;)
+  {
+    if ((tm = Getattr(p, "tmap:freearg")))
+    {
       //addThrows(n, "tmap:freearg", p);
       Replaceall(tm, "$input", Getattr(p, "emit:input"));
       Printv(wrapper->code, tm, "\n", NIL);
       p = Getattr(p, "tmap:freearg:next");
-    } else {
+    }
+    else
+    {
       p = nextSibling(p);
     }
   }
 
-  if (GetFlag(n, "feature:new")) {
+  if (GetFlag(n, "feature:new"))
+  {
     tm = Swig_typemap_lookup("newfree", n, Swig_cresult_name(), 0);
-    if (tm != NIL) {
+    if (tm != NIL)
+    {
       //addThrows(throws_hash, "newfree", n);
       Printv(wrapper->code, tm, "\n", NIL);
     }
   }
 
   /* See if there is any return cleanup code */
-  if ((tm = Swig_typemap_lookup("ret", n, Swig_cresult_name(), 0))) {
+  if ((tm = Swig_typemap_lookup("ret", n, Swig_cresult_name(), 0)))
+  {
     Printf(wrapper->code, "%s\n", tm);
     Delete(tm);
   }
 }
 
-int JSEmitter::switchNamespace(Node *n) {
+int JSEmitter::switchNamespace(Node *n)
+{
   // HACK: somehow this gets called for member functions.
   // We can safely ignore them, as members are not associated to a namespace (only their class)
-  if (GetFlag(n, "ismember")) {
+  if (GetFlag(n, "ismember"))
+  {
     return SWIG_OK;
   }
 
   // if nspace is deactivated, everything goes into the global scope
-  if (!GetFlag(n, "feature:nspace")) {
+  if (!GetFlag(n, "feature:nspace"))
+  {
     current_namespace = Getattr(namespaces, "::");
     return SWIG_OK;
   }
@@ -1415,14 +2222,16 @@ int JSEmitter::switchNamespace(Node *n) {
 
   String *nspace = Getattr(n, "sym:nspace");
 
-  if (nspace == NULL) {
+  if (nspace == NULL)
+  {
     // It seems that only classes have 'sym:nspace' set.
     // We try to get the namespace from the qualified name (i.e., everything before the last '::')
     nspace = Swig_scopename_prefix(Getattr(n, "name"));
   }
 
   // If there is not even a scopename prefix then it must be global scope
-  if (nspace == NULL) {
+  if (nspace == NULL)
+  {
     current_namespace = Getattr(namespaces, "::");
     return SWIG_OK;
   }
@@ -1433,7 +2242,8 @@ int JSEmitter::switchNamespace(Node *n) {
 
   // if the scope is not yet registered
   // create (parent) namespaces recursively
-  if (!Getattr(namespaces, scope)) {
+  if (!Getattr(namespaces, scope))
+  {
     createNamespace(scope);
   }
   current_namespace = Getattr(namespaces, scope);
@@ -1441,16 +2251,22 @@ int JSEmitter::switchNamespace(Node *n) {
   return SWIG_OK;
 }
 
-int JSEmitter::createNamespace(String *scope) {
+int JSEmitter::createNamespace(String *scope)
+{
 
   String *parent_scope = Swig_scopename_prefix(scope);
   Hash *parent_namespace;
-  if (parent_scope == 0) {
+  if (parent_scope == 0)
+  {
     parent_namespace = Getattr(namespaces, "::");
-  } else if (!Getattr(namespaces, parent_scope)) {
+  }
+  else if (!Getattr(namespaces, parent_scope))
+  {
     createNamespace(parent_scope);
     parent_namespace = Getattr(namespaces, parent_scope);
-  } else {
+  }
+  else
+  {
     parent_namespace = Getattr(namespaces, parent_scope);
   }
   assert(parent_namespace != 0);
@@ -1462,7 +2278,8 @@ int JSEmitter::createNamespace(String *scope) {
   return SWIG_OK;
 }
 
-Hash *JSEmitter::createNamespaceEntry(const char *_name, const char *parent, const char *parent_mangled) {
+Hash *JSEmitter::createNamespaceEntry(const char *_name, const char *parent, const char *parent_mangled)
+{
   Hash *entry = NewHash();
   String *name = NewString(_name);
   Setattr(entry, NAME, Swig_scopename_last(name));
@@ -1478,11 +2295,12 @@ Hash *JSEmitter::createNamespaceEntry(const char *_name, const char *parent, con
  * JavascriptCore: JSEmitter implementation for JavascriptCore engine
  **********************************************************************/
 
-class JSCEmitter:public JSEmitter {
+class JSCEmitter : public JSEmitter
+{
 
 public:
   JSCEmitter();
-  virtual ~ JSCEmitter();
+  virtual ~JSCEmitter();
   virtual int initialize(Node *n);
   virtual int dump(Node *n);
   virtual int close();
@@ -1499,7 +2317,6 @@ protected:
   virtual int emitNamespaces();
 
 private:
-
   String *NULL_STR;
   String *VETO_SET;
 
@@ -1508,18 +2325,18 @@ private:
   File *f_runtime;
   File *f_header;
   File *f_init;
-
 };
 
 JSCEmitter::JSCEmitter()
-:  JSEmitter(JSEmitter::JavascriptCore), NULL_STR(NewString("NULL")), VETO_SET(NewString("JS_veto_set_variable")), f_wrap_cpp(NULL), f_runtime(NULL), f_header(NULL), f_init(NULL) {
+    : JSEmitter(JSEmitter::JavascriptCore), NULL_STR(NewString("NULL")), VETO_SET(NewString("JS_veto_set_variable")), f_wrap_cpp(NULL), f_runtime(NULL), f_header(NULL), f_init(NULL)
+{
 }
 
-JSCEmitter::~JSCEmitter() {
+JSCEmitter::~JSCEmitter()
+{
   Delete(NULL_STR);
   Delete(VETO_SET);
 }
-
 
 /* ---------------------------------------------------------------------
  * marshalInputArgs()
@@ -1529,14 +2346,16 @@ JSCEmitter::~JSCEmitter() {
  * supplied typemaps.
  * --------------------------------------------------------------------- */
 
-void JSCEmitter::marshalInputArgs(Node *n, ParmList *parms, Wrapper *wrapper, MarshallingMode mode, bool is_member, bool is_static) {
+void JSCEmitter::marshalInputArgs(Node *n, ParmList *parms, Wrapper *wrapper, MarshallingMode mode, bool is_member, bool is_static)
+{
   Parm *p;
   String *tm;
 
   // determine an offset index, as members have an extra 'this' argument
   // except: static members and ctors.
   int startIdx = 0;
-  if (is_member && !is_static && mode != Ctor) {
+  if (is_member && !is_static && mode != Ctor)
+  {
     startIdx = 1;
   }
   // store number of arguments for argument checks
@@ -1547,7 +2366,8 @@ void JSCEmitter::marshalInputArgs(Node *n, ParmList *parms, Wrapper *wrapper, Ma
 
   // process arguments
   int i = 0;
-  for (p = parms; p; i++) {
+  for (p = parms; p; i++)
+  {
     String *arg = NewString("");
     String *type = Getattr(p, "type");
 
@@ -1555,20 +2375,27 @@ void JSCEmitter::marshalInputArgs(Node *n, ParmList *parms, Wrapper *wrapper, Ma
     if (SwigType_isvarargs(type))
       break;
 
-    switch (mode) {
+    switch (mode)
+    {
     case Getter:
     case Function:
-      if (is_member && !is_static && i == 0) {
-	Printv(arg, "thisObject", 0);
-      } else {
-	Printf(arg, "argv[%d]", i - startIdx);
+      if (is_member && !is_static && i == 0)
+      {
+        Printv(arg, "thisObject", 0);
+      }
+      else
+      {
+        Printf(arg, "argv[%d]", i - startIdx);
       }
       break;
     case Setter:
-      if (is_member && !is_static && i == 0) {
-	Printv(arg, "thisObject", 0);
-      } else {
-	Printv(arg, "value", 0);
+      if (is_member && !is_static && i == 0)
+      {
+        Printv(arg, "thisObject", 0);
+      }
+      else
+      {
+        Printv(arg, "value", 0);
       }
       break;
     case Ctor:
@@ -1579,15 +2406,19 @@ void JSCEmitter::marshalInputArgs(Node *n, ParmList *parms, Wrapper *wrapper, Ma
     }
     tm = emitInputTypemap(n, p, wrapper, arg);
     Delete(arg);
-    if (tm) {
+    if (tm)
+    {
       p = Getattr(p, "tmap:in:next");
-    } else {
+    }
+    else
+    {
       p = nextSibling(p);
     }
   }
 }
 
-int JSCEmitter::initialize(Node *n) {
+int JSCEmitter::initialize(Node *n)
+{
 
   JSEmitter::initialize(n);
 
@@ -1596,7 +2427,8 @@ int JSCEmitter::initialize(Node *n) {
 
   /* Initialize I/O */
   f_wrap_cpp = NewFile(outfile, "w", SWIG_output_files());
-  if (!f_wrap_cpp) {
+  if (!f_wrap_cpp)
+  {
     FileErrorDisplay(outfile);
     SWIG_exit(EXIT_FAILURE);
   }
@@ -1622,7 +2454,8 @@ int JSCEmitter::initialize(Node *n) {
   return SWIG_OK;
 }
 
-int JSCEmitter::dump(Node *n) {
+int JSCEmitter::dump(Node *n)
+{
   /* Get the module name */
   String *module = Getattr(n, "name");
 
@@ -1650,7 +2483,8 @@ int JSCEmitter::dump(Node *n) {
   return SWIG_OK;
 }
 
-int JSCEmitter::close() {
+int JSCEmitter::close()
+{
   Delete(f_runtime);
   Delete(f_header);
   Delete(f_wrappers);
@@ -1660,26 +2494,32 @@ int JSCEmitter::close() {
   return SWIG_OK;
 }
 
-int JSCEmitter::enterFunction(Node *n) {
+int JSCEmitter::enterFunction(Node *n)
+{
 
   JSEmitter::enterFunction(n);
 
   return SWIG_OK;
 }
 
-int JSCEmitter::exitFunction(Node *n) {
+int JSCEmitter::exitFunction(Node *n)
+{
   Template t_function = getTemplate("jsc_function_declaration");
 
   bool is_member = GetFlag(n, "ismember") != 0 || GetFlag(n, "feature:extend") != 0;
   bool is_overloaded = GetFlag(n, "sym:overloaded") != 0;
 
   // handle overloaded functions
-  if (is_overloaded) {
-    if (!Getattr(n, "sym:nextSibling")) {
+  if (is_overloaded)
+  {
+    if (!Getattr(n, "sym:nextSibling"))
+    {
       //state.function(WRAPPER_NAME, Swig_name_wrapper(Getattr(n, "name")));
       // create dispatcher
       emitFunctionDispatcher(n, is_member);
-    } else {
+    }
+    else
+    {
       //don't register wrappers of overloaded functions in function tables
       return SWIG_OK;
     }
@@ -1688,47 +2528,61 @@ int JSCEmitter::exitFunction(Node *n) {
   t_function.replace("$jsname", state.function(NAME))
       .replace("$jswrapper", state.function(WRAPPER_NAME));
 
-  if (is_member) {
-    if (GetFlag(state.function(), IS_STATIC)) {
+  if (is_member)
+  {
+    if (GetFlag(state.function(), IS_STATIC))
+    {
       t_function.pretty_print(state.clazz(STATIC_FUNCTIONS));
-    } else {
+    }
+    else
+    {
       t_function.pretty_print(state.clazz(MEMBER_FUNCTIONS));
     }
-  } else {
+  }
+  else
+  {
     t_function.pretty_print(Getattr(current_namespace, "functions"));
   }
 
   return SWIG_OK;
 }
 
-int JSCEmitter::enterVariable(Node *n) {
+int JSCEmitter::enterVariable(Node *n)
+{
   JSEmitter::enterVariable(n);
   state.variable(GETTER, NULL_STR);
   state.variable(SETTER, VETO_SET);
   return SWIG_OK;
 }
 
-int JSCEmitter::exitVariable(Node *n) {
+int JSCEmitter::exitVariable(Node *n)
+{
   Template t_variable(getTemplate("jsc_variable_declaration"));
   t_variable.replace("$jsname", state.variable(NAME))
       .replace("$jsgetter", state.variable(GETTER))
       .replace("$jssetter", state.variable(SETTER));
 
-  if (GetFlag(n, "ismember")) {
-    if (GetFlag(state.variable(), IS_STATIC)
-	|| Equal(Getattr(n, "nodeType"), "enumitem")) {
+  if (GetFlag(n, "ismember"))
+  {
+    if (GetFlag(state.variable(), IS_STATIC) || Equal(Getattr(n, "nodeType"), "enumitem"))
+    {
       t_variable.pretty_print(state.clazz(STATIC_VARIABLES));
-    } else {
+    }
+    else
+    {
       t_variable.pretty_print(state.clazz(MEMBER_VARIABLES));
     }
-  } else {
+  }
+  else
+  {
     t_variable.pretty_print(Getattr(current_namespace, "values"));
   }
 
   return SWIG_OK;
 }
 
-int JSCEmitter::enterClass(Node *n) {
+int JSCEmitter::enterClass(Node *n)
+{
   JSEmitter::enterClass(n);
   state.clazz(MEMBER_VARIABLES, NewString(""));
   state.clazz(MEMBER_FUNCTIONS, NewString(""));
@@ -1742,7 +2596,8 @@ int JSCEmitter::enterClass(Node *n) {
   return SWIG_OK;
 }
 
-int JSCEmitter::exitClass(Node *n) {
+int JSCEmitter::exitClass(Node *n)
+{
   Template t_class_tables(getTemplate("jsc_class_tables"));
   t_class_tables.replace("$jsmangledname", state.clazz(NAME_MANGLED))
       .replace("$jsclassvariables", state.clazz(MEMBER_VARIABLES))
@@ -1756,11 +2611,12 @@ int JSCEmitter::exitClass(Node *n) {
   //Append(f_wrappers, state.clazz(CTOR_WRAPPERS));
 
   // for abstract classes add a vetoing ctor
-  if (GetFlag(state.clazz(), IS_ABSTRACT)) {
+  if (GetFlag(state.clazz(), IS_ABSTRACT))
+  {
     Template t_veto_ctor(getTemplate("js_veto_ctor"));
     t_veto_ctor.replace("$jswrapper", state.clazz(CTOR))
-	.replace("$jsname", state.clazz(NAME))
-	.pretty_print(f_wrappers);
+        .replace("$jsname", state.clazz(NAME))
+        .pretty_print(f_wrappers);
   }
 
   /* adds a class template statement to initializer function */
@@ -1769,15 +2625,18 @@ int JSCEmitter::exitClass(Node *n) {
   /* prepare registration of base class */
   String *jsclass_inheritance = NewString("");
   Node *base_class = getBaseClass(n);
-  if (base_class != NULL) {
+  if (base_class != NULL)
+  {
     Template t_inherit(getTemplate("jsc_class_inherit"));
     t_inherit.replace("$jsmangledname", state.clazz(NAME_MANGLED))
-	.replace("$jsbaseclassmangled", SwigType_manglestr(Getattr(base_class, "name")))
-	.pretty_print(jsclass_inheritance);
-  } else {
+        .replace("$jsbaseclassmangled", SwigType_manglestr(Getattr(base_class, "name")))
+        .pretty_print(jsclass_inheritance);
+  }
+  else
+  {
     Template t_inherit(getTemplate("jsc_class_noinherit"));
     t_inherit.replace("$jsmangledname", state.clazz(NAME_MANGLED))
-	.pretty_print(jsclass_inheritance);
+        .pretty_print(jsclass_inheritance);
   }
 
   t_classtemplate.replace("$jsmangledname", state.clazz(NAME_MANGLED))
@@ -1801,16 +2660,19 @@ int JSCEmitter::exitClass(Node *n) {
   return SWIG_OK;
 }
 
-Hash *JSCEmitter::createNamespaceEntry(const char *name, const char *parent, const char *parent_mangled) {
+Hash *JSCEmitter::createNamespaceEntry(const char *name, const char *parent, const char *parent_mangled)
+{
   Hash *entry = JSEmitter::createNamespaceEntry(name, parent, parent_mangled);
   Setattr(entry, "functions", NewString(""));
   Setattr(entry, "values", NewString(""));
   return entry;
 }
 
-int JSCEmitter::emitNamespaces() {
+int JSCEmitter::emitNamespaces()
+{
   Iterator it;
-  for (it = First(namespaces); it.item; it = Next(it)) {
+  for (it = First(namespaces); it.item; it = Next(it))
+  {
     Hash *entry = it.item;
     String *name = Getattr(entry, NAME);
     String *name_mangled = Getattr(entry, NAME_MANGLED);
@@ -1822,21 +2684,22 @@ int JSCEmitter::emitNamespaces() {
 
     Template namespace_definition(getTemplate("jsc_nspace_declaration"));
     namespace_definition.replace("$jsglobalvariables", variables)
-	.replace("$jsglobalfunctions", functions)
-	.replace("$jsnspace", name_mangled)
-	.replace("$jsmangledname", name_mangled)
-	.pretty_print(f_wrap_cpp);
+        .replace("$jsglobalfunctions", functions)
+        .replace("$jsnspace", name_mangled)
+        .replace("$jsmangledname", name_mangled)
+        .pretty_print(f_wrap_cpp);
 
     Template t_createNamespace(getTemplate("jsc_nspace_definition"));
     t_createNamespace.replace("$jsmangledname", name_mangled);
     Append(state.globals(CREATE_NAMESPACES), t_createNamespace.str());
 
     // Don't register 'exports' as namespace. It is return to the application.
-    if (!Equal("exports", name)) {
+    if (!Equal("exports", name))
+    {
       Template t_registerNamespace(getTemplate("jsc_nspace_registration"));
       t_registerNamespace.replace("$jsmangledname", name_mangled)
-	  .replace("$jsname", name)
-	  .replace("$jsparent", parent_mangled);
+          .replace("$jsname", name)
+          .replace("$jsparent", parent_mangled);
       Append(state.globals(REGISTER_NAMESPACES), t_registerNamespace.str());
     }
   }
@@ -1844,7 +2707,8 @@ int JSCEmitter::emitNamespaces() {
   return SWIG_OK;
 }
 
-JSEmitter *swig_javascript_create_JSCEmitter() {
+JSEmitter *swig_javascript_create_JSCEmitter()
+{
   return new JSCEmitter();
 }
 
@@ -1852,12 +2716,13 @@ JSEmitter *swig_javascript_create_JSCEmitter() {
  * V8: JSEmitter implementation for V8 engine
  **********************************************************************/
 
-class V8Emitter:public JSEmitter {
+class V8Emitter : public JSEmitter
+{
 
 public:
   V8Emitter();
 
-  virtual ~ V8Emitter();
+  virtual ~V8Emitter();
   virtual int initialize(Node *n);
   virtual int dump(Node *n);
   virtual int close();
@@ -1897,19 +2762,22 @@ protected:
   String *NULL_STR;
   String *VETO_SET;
   String *moduleName;
-
 };
 
 V8Emitter::V8Emitter()
-:  JSEmitter(JSEmitter::V8), NULL_STR(NewString("0")), VETO_SET(NewString("JS_veto_set_variable")) {
+    : JSEmitter(JSEmitter::V8), NULL_STR(NewString("0")), VETO_SET(NewString("JS_veto_set_variable"))
+{
 }
 
-V8Emitter::~V8Emitter() {
+V8Emitter::~V8Emitter()
+{
   Delete(NULL_STR);
   Delete(VETO_SET);
 }
 
-int V8Emitter::initialize(Node *n) {
+int V8Emitter::initialize(Node *n)
+{
+  Printf(stdout, "Initialize V8Emitter\n");
   JSEmitter::initialize(n);
 
   moduleName = Getattr(n, "name");
@@ -1917,7 +2785,8 @@ int V8Emitter::initialize(Node *n) {
   // Get the output file name
   String *outfile = Getattr(n, "outfile");
   f_wrap_cpp = NewFile(outfile, "w", SWIG_output_files());
-  if (!f_wrap_cpp) {
+  if (!f_wrap_cpp)
+  {
     FileErrorDisplay(outfile);
     SWIG_exit(EXIT_FAILURE);
   }
@@ -1952,7 +2821,8 @@ int V8Emitter::initialize(Node *n) {
   return SWIG_OK;
 }
 
-int V8Emitter::dump(Node *n) {
+int V8Emitter::dump(Node *n)
+{
   /* Get the module name */
   String *module = Getattr(n, "name");
 
@@ -1989,7 +2859,8 @@ int V8Emitter::dump(Node *n) {
   return SWIG_OK;
 }
 
-int V8Emitter::close() {
+int V8Emitter::close()
+{
   Delete(f_runtime);
   Delete(f_header);
   Delete(f_class_templates);
@@ -2007,7 +2878,8 @@ int V8Emitter::close() {
   return SWIG_OK;
 }
 
-int V8Emitter::enterClass(Node *n) {
+int V8Emitter::enterClass(Node *n)
+{
   JSEmitter::enterClass(n);
 
   // emit declaration of a v8 class template
@@ -2019,12 +2891,14 @@ int V8Emitter::enterClass(Node *n) {
   return SWIG_OK;
 }
 
-int V8Emitter::exitClass(Node *n) {
-  if (GetFlag(state.clazz(), IS_ABSTRACT)) {
+int V8Emitter::exitClass(Node *n)
+{
+  if (GetFlag(state.clazz(), IS_ABSTRACT))
+  {
     Template t_veto_ctor(getTemplate("js_veto_ctor"));
     t_veto_ctor.replace("$jswrapper", state.clazz(CTOR))
-	.replace("$jsname", state.clazz(NAME))
-	.pretty_print(f_wrappers);
+        .replace("$jsname", state.clazz(NAME))
+        .pretty_print(f_wrappers);
   }
 
   /* Note: this makes sure that there is a swig_type added for this class */
@@ -2052,16 +2926,17 @@ int V8Emitter::exitClass(Node *n) {
 
   //  emit inheritance setup
   Node *baseClass = getBaseClass(n);
-  if (baseClass) {
+  if (baseClass)
+  {
     String *base_name = Getattr(baseClass, "name");
 
     Template t_inherit = getTemplate("jsv8_inherit");
 
     String *base_name_mangled = SwigType_manglestr(base_name);
     t_inherit.replace("$jsmangledname", state.clazz(NAME_MANGLED))
-	.replace("$jsbaseclass", base_name_mangled)
-	.trim()
-	.pretty_print(f_init_inheritance);
+        .replace("$jsbaseclass", base_name_mangled)
+        .trim()
+        .pretty_print(f_init_inheritance);
     Delete(base_name_mangled);
   }
   //  emit registration of class template
@@ -2075,7 +2950,8 @@ int V8Emitter::exitClass(Node *n) {
   return SWIG_OK;
 }
 
-int V8Emitter::enterVariable(Node *n) {
+int V8Emitter::enterVariable(Node *n)
+{
   JSEmitter::enterVariable(n);
 
   state.variable(GETTER, NULL_STR);
@@ -2084,91 +2960,111 @@ int V8Emitter::enterVariable(Node *n) {
   return SWIG_OK;
 }
 
-int V8Emitter::exitVariable(Node *n) {
-  if (GetFlag(n, "ismember")) {
-    if (GetFlag(state.variable(), IS_STATIC) || Equal(Getattr(n, "nodeType"), "enumitem")) {
+int V8Emitter::exitVariable(Node *n)
+{
+  if (GetFlag(n, "ismember"))
+  {
+    if (GetFlag(state.variable(), IS_STATIC) || Equal(Getattr(n, "nodeType"), "enumitem"))
+    {
       Template t_register = getTemplate("jsv8_register_static_variable");
       t_register.replace("$jsparent", state.clazz(NAME_MANGLED))
-	  .replace("$jsname", state.variable(NAME))
-	  .replace("$jsgetter", state.variable(GETTER))
-	  .replace("$jssetter", state.variable(SETTER))
-	  .trim()
-	  .pretty_print(f_init_static_wrappers);
-    } else {
+          .replace("$jsname", state.variable(NAME))
+          .replace("$jsgetter", state.variable(GETTER))
+          .replace("$jssetter", state.variable(SETTER))
+          .trim()
+          .pretty_print(f_init_static_wrappers);
+    }
+    else
+    {
       Template t_register = getTemplate("jsv8_register_member_variable");
       t_register.replace("$jsmangledname", state.clazz(NAME_MANGLED))
-	  .replace("$jsname", state.variable(NAME))
-	  .replace("$jsgetter", state.variable(GETTER))
-	  .replace("$jssetter", state.variable(SETTER))
-	  .trim()
-	  .pretty_print(f_init_wrappers);
+          .replace("$jsname", state.variable(NAME))
+          .replace("$jsgetter", state.variable(GETTER))
+          .replace("$jssetter", state.variable(SETTER))
+          .trim()
+          .pretty_print(f_init_wrappers);
     }
-  } else {
+  }
+  else
+  {
     // Note: a global variable is treated like a static variable
     //       with the parent being a nspace object (instead of class object)
     Template t_register = getTemplate("jsv8_register_static_variable");
     t_register.replace("$jsparent", Getattr(current_namespace, NAME_MANGLED))
-	.replace("$jsname", state.variable(NAME))
-	.replace("$jsgetter", state.variable(GETTER))
-	.replace("$jssetter", state.variable(SETTER))
-	.trim()
-	.pretty_print(f_init_wrappers);
+        .replace("$jsname", state.variable(NAME))
+        .replace("$jsgetter", state.variable(GETTER))
+        .replace("$jssetter", state.variable(SETTER))
+        .trim()
+        .pretty_print(f_init_wrappers);
   }
 
   return SWIG_OK;
 }
 
-int V8Emitter::exitFunction(Node *n) {
+int V8Emitter::exitFunction(Node *n)
+{
   bool is_member = GetFlag(n, "ismember") != 0 || GetFlag(n, "feature:extend") != 0;
 
   // create a dispatcher for overloaded functions
   bool is_overloaded = GetFlag(n, "sym:overloaded") != 0;
-  if (is_overloaded) {
-    if (!Getattr(n, "sym:nextSibling")) {
+  if (is_overloaded)
+  {
+    if (!Getattr(n, "sym:nextSibling"))
+    {
       //state.function(WRAPPER_NAME, Swig_name_wrapper(Getattr(n, "name")));
       emitFunctionDispatcher(n, is_member);
-    } else {
+    }
+    else
+    {
       //don't register wrappers of overloaded functions in function tables
       return SWIG_OK;
     }
   }
   // register the function at the specific context
-  if (is_member) {
-    if (GetFlag(state.function(), IS_STATIC)) {
+  if (is_member)
+  {
+    if (GetFlag(state.function(), IS_STATIC))
+    {
       Template t_register = getTemplate("jsv8_register_static_function");
       t_register.replace("$jsparent", state.clazz(NAME_MANGLED))
-	  .replace("$jsname", state.function(NAME))
-	  .replace("$jswrapper", state.function(WRAPPER_NAME))
-	  .trim()
-	  .pretty_print(f_init_static_wrappers);
-    } else {
+          .replace("$jsname", state.function(NAME))
+          .replace("$jswrapper", state.function(WRAPPER_NAME))
+          .trim()
+          .pretty_print(f_init_static_wrappers);
+    }
+    else
+    {
       Template t_register = getTemplate("jsv8_register_member_function");
       t_register.replace("$jsmangledname", state.clazz(NAME_MANGLED))
-	  .replace("$jsname", state.function(NAME))
-	  .replace("$jswrapper", state.function(WRAPPER_NAME))
-	  .trim()
-	  .pretty_print(f_init_wrappers);
+          .replace("$jsname", state.function(NAME))
+          .replace("$jswrapper", state.function(WRAPPER_NAME))
+          .trim()
+          .pretty_print(f_init_wrappers);
     }
-  } else {
+  }
+  else
+  {
     // Note: a global function is treated like a static function
     //       with the parent being a nspace object instead of class object
     Template t_register = getTemplate("jsv8_register_static_function");
     t_register.replace("$jsparent", Getattr(current_namespace, NAME_MANGLED))
-	.replace("$jsname", state.function(NAME))
-	.replace("$jswrapper", state.function(WRAPPER_NAME))
-	.trim()
-	.pretty_print(f_init_static_wrappers);
+        .replace("$jsname", state.function(NAME))
+        .replace("$jswrapper", state.function(WRAPPER_NAME))
+        .trim()
+        .pretty_print(f_init_static_wrappers);
   }
 
   return SWIG_OK;
 }
 
-void V8Emitter::marshalInputArgs(Node *n, ParmList *parms, Wrapper *wrapper, MarshallingMode mode, bool is_member, bool is_static) {
+void V8Emitter::marshalInputArgs(Node *n, ParmList *parms, Wrapper *wrapper, MarshallingMode mode, bool is_member, bool is_static)
+{
   Parm *p;
   String *tm;
 
   int startIdx = 0;
-  if (is_member && !is_static && mode != Ctor) {
+  if (is_member && !is_static && mode != Ctor)
+  {
     startIdx = 1;
   }
   // store number of arguments for argument checks
@@ -2178,7 +3074,8 @@ void V8Emitter::marshalInputArgs(Node *n, ParmList *parms, Wrapper *wrapper, Mar
   Setattr(n, ARGCOUNT, argcount);
 
   int i = 0;
-  for (p = parms; p; i++) {
+  for (p = parms; p; i++)
+  {
     String *arg = NewString("");
     String *type = Getattr(p, "type");
 
@@ -2186,26 +3083,36 @@ void V8Emitter::marshalInputArgs(Node *n, ParmList *parms, Wrapper *wrapper, Mar
     if (SwigType_isvarargs(type))
       break;
 
-    switch (mode) {
+    switch (mode)
+    {
     case Getter:
-      if (is_member && !is_static && i == 0) {
-	Printv(arg, "info.Holder()", 0);
-      } else {
-	Printf(arg, "args[%d]", i - startIdx);
+      if (is_member && !is_static && i == 0)
+      {
+        Printv(arg, "info.Holder()", 0);
+      }
+      else
+      {
+        Printf(arg, "args[%d]", i - startIdx);
       }
       break;
     case Function:
-      if (is_member && !is_static && i == 0) {
-	Printv(arg, "args.Holder()", 0);
-      } else {
-	Printf(arg, "args[%d]", i - startIdx);
+      if (is_member && !is_static && i == 0)
+      {
+        Printv(arg, "args.Holder()", 0);
+      }
+      else
+      {
+        Printf(arg, "args[%d]", i - startIdx);
       }
       break;
     case Setter:
-      if (is_member && !is_static && i == 0) {
-	Printv(arg, "info.Holder()", 0);
-      } else {
-	Printv(arg, "value", 0);
+      if (is_member && !is_static && i == 0)
+      {
+        Printv(arg, "info.Holder()", 0);
+      }
+      else
+      {
+        Printv(arg, "value", 0);
       }
       break;
     case Ctor:
@@ -2218,17 +3125,22 @@ void V8Emitter::marshalInputArgs(Node *n, ParmList *parms, Wrapper *wrapper, Mar
     tm = emitInputTypemap(n, p, wrapper, arg);
     Delete(arg);
 
-    if (tm) {
+    if (tm)
+    {
       p = Getattr(p, "tmap:in:next");
-    } else {
+    }
+    else
+    {
       p = nextSibling(p);
     }
   }
 }
 
-int V8Emitter::emitNamespaces() {
+int V8Emitter::emitNamespaces()
+{
   Iterator it;
-  for (it = First(namespaces); it.item; it = Next(it)) {
+  for (it = First(namespaces); it.item; it = Next(it))
+  {
     Hash *entry = it.item;
     String *name = Getattr(entry, NAME);
     String *name_mangled = Getattr(entry, NAME_MANGLED);
@@ -2238,29 +3150,33 @@ int V8Emitter::emitNamespaces() {
     bool do_create = true;
     bool do_register = true;
 
-    if (Equal(parent, "")) {
+    if (Equal(parent, ""))
+    {
       do_register = false;
     }
     // Note: 'exports' is by convention the name of the object where
     // globals are stored into
-    if (Equal(name, "exports")) {
+    if (Equal(name, "exports"))
+    {
       do_create = false;
     }
 
-    if (do_create) {
+    if (do_create)
+    {
       // create namespace object and register it to the parent scope
       Template t_create_ns = getTemplate("jsv8_create_namespace");
       t_create_ns.replace("$jsmangledname", name_mangled)
-	  .trim()
-	  .pretty_print(f_init_namespaces);
+          .trim()
+          .pretty_print(f_init_namespaces);
     }
 
-    if (do_register) {
+    if (do_register)
+    {
       Template t_register_ns = getTemplate("jsv8_register_namespace");
       t_register_ns.replace("$jsmangledname", name_mangled)
-	  .replace("$jsname", name)
-	  .replace("$jsparent", parent_mangled)
-	  .trim();
+          .replace("$jsname", name)
+          .replace("$jsparent", parent_mangled)
+          .trim();
 
       // prepend in order to achieve reversed order of registration statements
       String *tmp_register_stmt = NewString("");
@@ -2273,7 +3189,8 @@ int V8Emitter::emitNamespaces() {
   return SWIG_OK;
 }
 
-JSEmitter *swig_javascript_create_V8Emitter() {
+JSEmitter *swig_javascript_create_V8Emitter()
+{
   return new V8Emitter();
 }
 
@@ -2282,77 +3199,97 @@ JSEmitter *swig_javascript_create_V8Emitter() {
  **********************************************************************/
 
 JSEmitterState::JSEmitterState()
-:  globalHash(NewHash()) {
+    : globalHash(NewHash())
+{
   // initialize sub-hashes
   Setattr(globalHash, "class", NewHash());
   Setattr(globalHash, "function", NewHash());
   Setattr(globalHash, "variable", NewHash());
 }
 
-JSEmitterState::~JSEmitterState() {
+JSEmitterState::~JSEmitterState()
+{
   Delete(globalHash);
 }
 
-DOH *JSEmitterState::getState(const char *key, bool new_key) {
-  if (new_key) {
+DOH *JSEmitterState::getState(const char *key, bool new_key)
+{
+  if (new_key)
+  {
     Hash *hash = NewHash();
     Setattr(globalHash, key, hash);
   }
   return Getattr(globalHash, key);
 }
 
-DOH *JSEmitterState::globals() {
+DOH *JSEmitterState::globals()
+{
   return globalHash;
 }
 
-DOH *JSEmitterState::globals(const char *key, DOH *initial) {
-  if (initial != 0) {
+DOH *JSEmitterState::globals(const char *key, DOH *initial)
+{
+  if (initial != 0)
+  {
     Setattr(globalHash, key, initial);
   }
   return Getattr(globalHash, key);
 }
 
-DOH *JSEmitterState::clazz(bool new_key) {
+DOH *JSEmitterState::clazz(bool new_key)
+{
   return getState("class", new_key);
 }
 
-DOH *JSEmitterState::clazz(const char *key, DOH *initial) {
+DOH *JSEmitterState::clazz(const char *key, DOH *initial)
+{
   DOH *c = clazz();
-  if (initial != 0) {
+  if (initial != 0)
+  {
     Setattr(c, key, initial);
   }
   return Getattr(c, key);
 }
 
-DOH *JSEmitterState::function(bool new_key) {
+DOH *JSEmitterState::function(bool new_key)
+{
   return getState("function", new_key);
 }
 
-DOH *JSEmitterState::function(const char *key, DOH *initial) {
+DOH *JSEmitterState::function(const char *key, DOH *initial)
+{
   DOH *f = function();
-  if (initial != 0) {
+  if (initial != 0)
+  {
     Setattr(f, key, initial);
   }
   return Getattr(f, key);
 }
 
-DOH *JSEmitterState::variable(bool new_key) {
+DOH *JSEmitterState::variable(bool new_key)
+{
   return getState("variable", new_key);
 }
 
-DOH *JSEmitterState::variable(const char *key, DOH *initial) {
+DOH *JSEmitterState::variable(const char *key, DOH *initial)
+{
   DOH *v = variable();
-  if (initial != 0) {
+  if (initial != 0)
+  {
     Setattr(v, key, initial);
   }
   return Getattr(v, key);
 }
 
 /*static*/
-int JSEmitterState::IsSet(DOH *val) {
-  if (!val) {
+int JSEmitterState::IsSet(DOH *val)
+{
+  if (!val)
+  {
     return 0;
-  } else {
+  }
+  else
+  {
     const char *cval = Char(val);
     if (!cval)
       return 0;
@@ -2364,9 +3301,11 @@ int JSEmitterState::IsSet(DOH *val) {
  * Template::Template() :  creates a Template class for given template code
  * ----------------------------------------------------------------------------- */
 
-Template::Template(const String *code_) {
+Template::Template(const String *code_)
+{
 
-  if (!code_) {
+  if (!code_)
+  {
     Printf(stdout, "Template code was null. Illegal input for template.");
     SWIG_exit(EXIT_FAILURE);
   }
@@ -2374,9 +3313,11 @@ Template::Template(const String *code_) {
   templateName = NewString("");
 }
 
-Template::Template(const String *code_, const String *templateName_) {
+Template::Template(const String *code_, const String *templateName_)
+{
 
-  if (!code_) {
+  if (!code_)
+  {
     Printf(stdout, "Template code was null. Illegal input for template.");
     SWIG_exit(EXIT_FAILURE);
   }
@@ -2385,12 +3326,12 @@ Template::Template(const String *code_, const String *templateName_) {
   templateName = NewString(templateName_);
 }
 
-
 /* -----------------------------------------------------------------------------
  * Template::~Template() :  cleans up of Template.
  * ----------------------------------------------------------------------------- */
 
-Template::~Template() {
+Template::~Template()
+{
   Delete(code);
   Delete(templateName);
 }
@@ -2399,8 +3340,10 @@ Template::~Template() {
  * String* Template::str() :  retrieves the current content of the template.
  * ----------------------------------------------------------------------------- */
 
-String *Template::str() {
-  if (js_template_enable_debug) {
+String *Template::str()
+{
+  if (js_template_enable_debug)
+  {
     String *pre_code = NewString("");
     String *post_code = NewString("");
     String *debug_code = NewString("");
@@ -2417,7 +3360,8 @@ String *Template::str() {
   return code;
 }
 
-Template & Template::trim() {
+Template &Template::trim()
+{
   const char *str = Char(code);
   if (str == 0)
     return *this;
@@ -2427,13 +3371,15 @@ Template & Template::trim() {
     return *this;
 
   int idx;
-  for (idx = 0; idx < length; ++idx) {
+  for (idx = 0; idx < length; ++idx)
+  {
     if (str[idx] != ' ' && str[idx] != '\t' && str[idx] != '\r' && str[idx] != '\n')
       break;
   }
   int start_pos = idx;
 
-  for (idx = length - 1; idx >= start_pos; --idx) {
+  for (idx = length - 1; idx >= start_pos; --idx)
+  {
     if (str[idx] != ' ' && str[idx] != '\t' && str[idx] != '\r' && str[idx] != '\n')
       break;
   }
@@ -2446,7 +3392,7 @@ Template & Template::trim() {
 
   Delete(code);
   code = NewString(newstr);
-  delete[]newstr;
+  delete[] newstr;
 
   return *this;
 }
@@ -2461,29 +3407,135 @@ Template & Template::trim() {
  *  - returns a reference to the Template to allow chaining of methods.
  * ----------------------------------------------------------------------------- */
 
-Template & Template::replace(const String *pattern, const String *repl) {
+Template &Template::replace(const String *pattern, const String *repl)
+{
   Replaceall(code, pattern, repl);
   return *this;
 }
 
-Template & Template::print(DOH *doh) {
+Template &Template::print(DOH *doh)
+{
   Printv(doh, str(), 0);
   return *this;
 }
 
-Template & Template::pretty_print(DOH *doh) {
+Template &Template::pretty_print(DOH *doh)
+{
   Wrapper_pretty_print(str(), doh);
   return *this;
 }
 
-Template::Template(const Template & t) {
+Template::Template(const Template &t)
+{
   code = NewString(t.code);
   templateName = NewString(t.templateName);
 }
 
-void Template::operator=(const Template & t) {
+void Template::operator=(const Template &t)
+{
   Delete(code);
   Delete(templateName);
   code = NewString(t.code);
   templateName = NewString(t.templateName);
+}
+
+// TODO : Check eventual memory leaks
+ProxyInterface::~ProxyInterface()
+{
+  // Delete(classFileName);
+  // Delete(classFilePath);
+  // Delete(proxyExtraCode);
+  // Delete(empty_string);
+}
+
+/**
+ * Generate the code of the interface using the collected information
+ */
+void ProxyInterface::generateProxy()
+{
+  // className = Getattr(n, "sym:name");
+  String *classNameKebabCase = Swig_string_kcase(className);
+  classFileName = NewStringf("%s.d.ts", classNameKebabCase);
+  classFilePath = NewStringf("%s%s", SWIG_output_directory(), classFileName);
+  classFilePtr = NewFile(classFilePath, "w", SWIG_output_files());
+
+  String *proxyTypeName;
+  switch (proxyType)
+  {
+  case classType:
+    proxyTypeName = NewString("class");
+    break;
+  case interfaceType:
+    proxyTypeName = NewString("interface");
+    break;
+  case enumType:
+    proxyTypeName = NewString("declare enum");
+    break;
+  }
+
+  Printf(classFilePtr, "%s %s ", proxyTypeName, className);
+
+  if (baseClassName && Strcmp(baseClassName, "") != 0)
+  {
+    Printf(classFilePtr, "extends %s ", baseClassName);
+    Delete(baseClassName);
+  }
+  Printf(classFilePtr, "{\n");
+  Printf(classFilePtr, "%s", classCode);
+  Printf(classFilePtr, "%s", proxyExtraCode);
+  Printf(classFilePtr, "}\n");
+}
+
+/**
+ * Add a class member variable
+ *
+ * @param n The node where the public variable is declared
+ * @param typescriptType The proper type TypeScript type to be added to the member declaration
+ */
+void ProxyInterface::addMemberVariable(Node *n, String *typescriptType)
+{
+  String *typeFromTypemap;
+  String *memberVariableType = NewString(typescriptType);
+  // if ((typeFromTypemap = Swig_typemap_lookup("typescripttype", n, "", 0)))
+  // {
+  //   Printf(memberVariableType, "%s", typeFromTypemap);
+  // }
+  // else
+  // {
+  //   Printf(memberVariableType, "%s", Getattr(n, "type"));
+  // }
+  Printf(stdout, "   %s : %s;\n", Getattr(n, "sym:name"), memberVariableType);
+  Printf(classCode, "   %s : %s;\n", Getattr(n, "sym:name"), memberVariableType);
+  Printf(stdout, "  %%%%%%%%%%%%%%%%%%%%%%%%%% %s : %s;\n", Getattr(n, "sym:name"), memberVariableType);
+
+  // Delete(memberVariableType);
+}
+
+/**
+ * Add an enum value
+ *
+ * @param n The node where the enum value is defined
+ * @param value The value of the enum
+ */
+void ProxyInterface::addEnumValue(Node *n, String *value)
+{
+  if (value)
+  {
+    Printf(classCode, "   %s = %s,\n", Getattr(n, "sym:name"), value);
+  }
+  else
+  {
+    Printf(classCode, "   %s,\n", Getattr(n, "sym:name"));
+  }
+}
+
+/**
+ * Add code found as attribute of the node to the proxy interface
+ * In some types, like std::vector and(or) std::map, the 
+ *
+ * @param code The code in TypeScript to be added in the interface
+ */
+void ProxyInterface::insertCode(String *code)
+{
+  Printf(proxyExtraCode, "%s", code);
 }
