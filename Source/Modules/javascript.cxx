@@ -402,7 +402,7 @@ private:
   String *getTypescriptProxyType(Node *n);
   String *getEnumName(SwigType *t, bool jnidescriptor = false);
   void generateBaseInterfaces(Node *topNode);
-  void substituteClassnameSpecialVariable(SwigType *classnametype, String *tm, const char *classnamespecialvariable, bool jnidescriptor = false);
+  // void substituteClassnameSpecialVariable(SwigType *classnametype, String *tm, const char *classnamespecialvariable, bool jnidescriptor = false);
   Node *findTemplate(Node *topNode, char *name);
   Node *findInsert(Node *topNode, char *section);
   bool isTemplate(Node *n, char *name)
@@ -420,16 +420,16 @@ private:
   }
 };
 
-/* -----------------------------------------------------------------------------
- * Swig_string_kcase()
- *
+/**
  * Convert Pascal Case Swig String to Kebab Case
  *
  *      CamelCase -> camel-case
  *      get2D     -> get-2d
  *      asFloat2  -> as-float2
- * ----------------------------------------------------------------------------- */
-
+ *
+ * @param s The Pascal case string
+ * @return The name converted to Kebab Case
+ */
 String *Swig_string_kcase(String *s)
 {
   String *ns;
@@ -633,6 +633,12 @@ int JAVASCRIPT::classHandler(Node *n)
   return SWIG_OK;
 }
 
+/**
+ * Find %insert node that belongs to a node
+ *
+ * @param topNode Node where the cod should exist on
+ * @param section The section where yhe code should be inserted
+ */
 Node *JAVASCRIPT::findInsert(Node *topNode, char *section)
 {
   if (!topNode)
@@ -642,10 +648,7 @@ Node *JAVASCRIPT::findInsert(Node *topNode, char *section)
 
   if (isInsert(topNode, section))
   {
-    Printf(stdout, " FOUND Insert %s ================================================= 26\n", section);
     Swig_print_node(topNode);
-    Printf(stdout, "Code : %s\n", Getattr(topNode, "code"));
-    Printf(stdout, "================================================= 26\n");
     return topNode;
   }
 
@@ -663,34 +666,34 @@ Node *JAVASCRIPT::findInsert(Node *topNode, char *section)
   return NULL;
 }
 
+/**
+ * Generate the interface files for the base templates like vector, map, etc
+ *
+ * @param topNode Top level node after parse
+ */
 void JAVASCRIPT::generateBaseInterfaces(Node *topNode)
 {
   proxyInterface = new ProxyInterface(ProxyInterface::interfaceType);
   String *className = NewString("vector");
   proxyInterface->setClassName(className);
   Delete(className);
-  Printf(stdout, "================================================================ 25\n");
-  // SwigType *baseclassname = NewString("vector<(long)>");
-  // Node *n = classLookup(baseclassname);
-  // if (n) {
   Swig_print_node(topNode);
-  Printf(stdout, "================================================================ 24\n");
-  // Find a template called vector
   Node *templateNode = findTemplate(topNode, "vector");
   // TODO : Protect the code with if
   Node *insertCodeNode = findInsert(templateNode, "proxycode");
   Printf(stdout, "Code : %s\n", Getattr(insertCodeNode, "code"));
   proxyInterface->insertCode(Getattr(insertCodeNode, "code"));
-  // }
   proxyInterface->generateProxy();
   delete proxyInterface;
   proxyInterface = NULL;
-
-  Printf(stdout, "================================================================ 25\n");
 }
 
 /**
- * Try to find a template by name
+ * Try to find a template by name in the node tree.
+ * Navigate in the tree until it founds a template with the wanted name
+ *
+ * @param topNode AST top node
+ * @param name The name of the template to be found
  */
 Node *JAVASCRIPT::findTemplate(Node *topNode, char *name)
 {
@@ -701,9 +704,7 @@ Node *JAVASCRIPT::findTemplate(Node *topNode, char *name)
 
   if (isTemplate(topNode, name))
   {
-    Printf(stdout, " FOUND Template %s ================================================= 26\n", name);
     Swig_print_node(topNode);
-    Printf(stdout, "================================================= 26\n");
     return topNode;
   }
 
@@ -736,30 +737,31 @@ int JAVASCRIPT::membervariableHandler(Node *n)
 }
 
 /**
- * Executed for each enum
+ * Executed for each enum, found when navigating in the node tree
  *
  * @param n The node that represents the enumerated
+ * @return The SWIG status
  */
 int JAVASCRIPT::enumDeclaration(Node *n)
 {
-  Printf(stdout, "###### 20 1 - Enum : %s\n ", Getattr(n, "sym:name"));
   proxyEnum = new ProxyInterface(ProxyInterface::enumType);
-  // proxyEnum->n = n;
   proxyEnum->setClassName(Getattr(n, "sym:name"));
   Language::enumDeclaration(n);
   proxyEnum->generateProxy();
   delete proxyEnum;
   proxyEnum = NULL;
-  Printf(stdout, "###### 20 3 - Enum : %s\n ", Getattr(n, "sym:name"));
   return SWIG_OK;
 }
 
+/**
+ * CExecuted when navigating in the tree, when a value declaration node
+ * is found.
+ *
+ * @param n The node of the value declaration
+ * @return The SWIG status
+ */
 int JAVASCRIPT::enumvalueDeclaration(Node *n)
 {
-  Printf(stdout, "###### 20 2 - Enum declaration : %s\n ", Getattr(n, "sym:name"));
-  Printf(stdout, "###### 20 2 - Enum Value : %s\n", Getattr(n, "enumvalue"));
-  Printf(stdout, "###### 20 2 - Just Value : %s\n", Getattr(n, "value"));
-
   if (proxyEnum)
   {
     proxyEnum->addEnumValue(n, Getattr(n, "enumvalue"));
@@ -1002,56 +1004,56 @@ String *JAVASCRIPT::getTypescriptProxyType(Node *n)
    * substituteClassnameSpecialVariable()
    * ----------------------------------------------------------------------------- */
 
-void JAVASCRIPT::substituteClassnameSpecialVariable(SwigType *classnametype, String *tm, const char *classnamespecialvariable, bool jnidescriptor)
-{
-  String *replacementname;
+// void JAVASCRIPT::substituteClassnameSpecialVariable(SwigType *classnametype, String *tm, const char *classnamespecialvariable, bool jnidescriptor)
+// {
+//   String *replacementname;
 
-  if (SwigType_isenum(classnametype))
-  {
-    String *enumname = getEnumName(classnametype, jnidescriptor);
-    if (enumname)
-    {
-      replacementname = Copy(enumname);
-    }
-    else
-    {
-      bool anonymous_enum = (Cmp(classnametype, "enum ") == 0);
-      if (anonymous_enum)
-      {
-        replacementname = NewString("int");
-      }
-      else
-      {
-        // An unknown enum - one that has not been parsed (neither a C enum forward reference nor a definition) or an ignored enum
-        replacementname = NewStringf("SWIGTYPE%s", SwigType_manglestr(classnametype));
-        Replace(replacementname, "enum ", "", DOH_REPLACE_ANY);
-        // Setattr(swig_types_hash, replacementname, classnametype);
-      }
-    }
-  }
-  else
-  {
-    String *classname = getProxyName(classnametype, jnidescriptor); // getProxyName() works for pointers to classes too
-    if (classname)
-    {
-      replacementname = Copy(classname);
-    }
-    else
-    {
-      // use $descriptor if SWIG does not know anything about this type. Note that any typedefs are resolved.
-      replacementname = NewStringf("SWIGTYPE%s", SwigType_manglestr(classnametype));
+//   if (SwigType_isenum(classnametype))
+//   {
+//     String *enumname = getEnumName(classnametype, jnidescriptor);
+//     if (enumname)
+//     {
+//       replacementname = Copy(enumname);
+//     }
+//     else
+//     {
+//       bool anonymous_enum = (Cmp(classnametype, "enum ") == 0);
+//       if (anonymous_enum)
+//       {
+//         replacementname = NewString("int");
+//       }
+//       else
+//       {
+//         // An unknown enum - one that has not been parsed (neither a C enum forward reference nor a definition) or an ignored enum
+//         replacementname = NewStringf("SWIGTYPE%s", SwigType_manglestr(classnametype));
+//         Replace(replacementname, "enum ", "", DOH_REPLACE_ANY);
+//         // Setattr(swig_types_hash, replacementname, classnametype);
+//       }
+//     }
+//   }
+//   else
+//   {
+//     String *classname = getProxyName(classnametype, jnidescriptor); // getProxyName() works for pointers to classes too
+//     if (classname)
+//     {
+//       replacementname = Copy(classname);
+//     }
+//     else
+//     {
+//       // use $descriptor if SWIG does not know anything about this type. Note that any typedefs are resolved.
+//       replacementname = NewStringf("SWIGTYPE%s", SwigType_manglestr(classnametype));
 
-      // Add to hash table so that the type wrapper classes can be created later
-      // Setattr(swig_types_hash, replacementname, classnametype);
-    }
-  }
-  if (jnidescriptor)
-    Replaceall(replacementname, ".", "/");
-  Printf(stdout, "##### 10 Class name replacement variable : %s\n", replacementname);
-  Replaceall(tm, classnamespecialvariable, replacementname);
+//       // Add to hash table so that the type wrapper classes can be created later
+//       // Setattr(swig_types_hash, replacementname, classnametype);
+//     }
+//   }
+//   if (jnidescriptor)
+//     Replaceall(replacementname, ".", "/");
+//   Printf(stdout, "##### 10 Class name replacement variable : %s\n", replacementname);
+//   Replaceall(tm, classnamespecialvariable, replacementname);
 
-  Delete(replacementname);
-}
+//   Delete(replacementname);
+// }
 
 /* -----------------------------------------------------------------------------
    * getEnumName()
