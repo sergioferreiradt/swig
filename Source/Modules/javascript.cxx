@@ -11,6 +11,7 @@
  * Javascript language module for SWIG.
  * ----------------------------------------------------------------------------- */
 
+#include <ctype.h>
 #include "swigmod.h"
 #include "cparse.h"
 
@@ -101,6 +102,53 @@ public:
 private:
   String *code;
   String *templateName;
+};
+
+/**
+ * Typescript Proxy emitter helper
+ */
+class ProxyInterface
+{
+public:
+  enum ProxyType
+  {
+    classType,
+    interfaceType,
+    enumType
+  };
+
+  ProxyInterface(ProxyType pProxyType) : proxyType(pProxyType)
+  {
+    functionList = NewHash();
+    variableClassCode = NewString("");
+    functionClassCode = NewString("");
+    proxyExtraCode = NewString("");
+    className = NewString("");
+    baseClassName = NewString("");
+  };
+  ~ProxyInterface();
+  void generateProxy();
+  void setClassName(String *name) { Printf(className, "%s", name); }
+  void setBaseClassName(String *name) { Printf(baseClassName, "%s", name); }
+  void addMemberVariable(Node *n, String *typescriptType);
+  void addMemberFunction(Node *n);
+  void addEnumValue(Node *n, String *value);
+  void insertCode(String *code);
+
+private:
+  String *classFileName;
+  String *classFilePath;
+
+  Hash *functionList;
+
+  String *className;
+  String *baseClassName;
+  String *variableClassCode;
+  String *functionClassCode;
+  String *proxyExtraCode;
+  File *classFilePtr;
+  ProxyType proxyType;
+  String *getProxyName(SwigType *t);
 };
 
 /**
@@ -302,18 +350,24 @@ class JAVASCRIPT:public Language {
 
 public:
 
-  JAVASCRIPT():emitter(NULL) {
+  JAVASCRIPT() : emitter(NULL), emptyString(NewString("")), generateProxy(false) {
   }
+
   ~JAVASCRIPT() {
     delete emitter;
   }
 
   virtual int functionHandler(Node *n);
   virtual int globalfunctionHandler(Node *n);
+  virtual int memberfunctionHandler(Node *n);
   virtual int variableHandler(Node *n);
   virtual int globalvariableHandler(Node *n);
   virtual int staticmemberfunctionHandler(Node *n);
+  virtual int membervariableHandler(Node *n);
   virtual int classHandler(Node *n);
+  virtual int enumDeclaration(Node *n);
+  virtual int enumvalueDeclaration(Node *n);
+  virtual int insertDirective(Node *n);
   virtual int functionWrapper(Node *n);
   virtual int constantWrapper(Node *n);
   virtual int nativeWrapper(Node *n);
@@ -325,14 +379,98 @@ public:
    **/
   virtual int fragmentDirective(Node *n);
 
+  ProxyInterface *proxyInterface;
+  ProxyInterface *proxyEnum;
+
 public:
 
   virtual String *getNSpace() const;
 
 private:
-
   JSEmitter *emitter;
+  String *emptyString;
+  bool generateProxy;
+
+  void proxyClassHandlerBefore(Node *n);
+  void proxyClassHandlerAfter(Node *n);
+  void proxyMemberVariableHandlerBefore(Node *n);
+  void proxyMemberFunctionHandlerBefore(Node *n);
+  void proxyEnumDeclarationBefore(Node *n);
+  void proxyEnumDeclarationAfter();
+  String *getBaseClass(Node *n);
+  String *getProxyName(SwigType *t);
+  String *typemapLookup(Node *n, const char *typemapName, SwigType *type);
+  String *getTypescriptProxyType(Node *n);
+  void generateBaseInterfaces(Node *topNode);
+  void generateBaseInterface(Node *topNode, const char *interfaceName);
+  Node *findTemplate(Node *topNode, const char *name);
+  Node *findInsert(Node *topNode, const char *section);
+  bool isTemplate(Node *n, const char *name)
+  {
+    if (Strcmp(nodeType(n), "template") == 0 && Strcmp(Getattr(n, "name"), name) == 0)
+      return true;
+    return false;
+  }
+
+  bool isInsert(Node *n, const char *section)
+  {
+    if (Strcmp(nodeType(n), "insert") == 0 && Strcmp(Getattr(n, "section"), section) == 0)
+      return true;
+    return false;
+  }
 };
+
+/**
+ * Convert Pascal Case Swig String to Kebab Case
+ *
+ *      CamelCase -> camel-case
+ *      get2D     -> get-2d
+ *      asFloat2  -> as-float2
+ *
+ * @param s The Pascal case string
+ * @return The name converted to Kebab Case
+ */
+String *Swig_string_kcase(String *s)
+{
+  String *ns;
+  int c;
+  int lastC = 0;
+  int nextC = 0;
+  int underscore = 0;
+  ns = NewStringEmpty();
+
+  /* We insert a dash when:
+     1. Lower case char followed by upper case char
+     getFoo > get_foo; getFOo > get_foo; GETFOO > getfoo
+     2. Number preceded by char and not end of string
+     get2D > get_2d; get22D > get_22d; GET2D > get_2d
+     but:
+     asFloat2 > as_float2
+  */
+
+  Seek(s, 0, SEEK_SET);
+
+  while ((c = Getc(s)) != EOF)
+  {
+    nextC = Getc(s);
+    Ungetc(nextC, s);
+    if (isdigit(c) && isalpha(lastC) && nextC != EOF)
+      underscore = 1;
+    else if (isupper(c) && isalpha(lastC) && !isupper(lastC))
+      underscore = 1;
+
+    lastC = c;
+
+    if (underscore)
+    {
+      Putc('-', ns);
+      underscore = 0;
+    }
+
+    Putc(tolower(c), ns);
+  }
+  return ns;
+}
 
 /* ---------------------------------------------------------------------
  * functionWrapper()
@@ -459,20 +597,446 @@ int JAVASCRIPT::nativeWrapper(Node *n) {
   return SWIG_OK;
 }
 
-/* ---------------------------------------------------------------------
- * classHandler()
- *
+/**
  * Function handler for generating wrappers for class
- * --------------------------------------------------------------------- */
-
-int JAVASCRIPT::classHandler(Node *n) {
+ * When top() is called to traverse the node tree, this function is called
+ * id the node is "class" type
+ *
+ * @param n The node that the navigation is passing by
+ * @return status to swig decide what to do
+ */
+int JAVASCRIPT::classHandler(Node *n)
+{
   emitter->switchNamespace(n);
 
   emitter->enterClass(n);
-  Language::classHandler(n);
-  emitter->exitClass(n);
 
+  proxyClassHandlerBefore(n);
+  int returnValue = Language::classHandler(n);
+  emitter->exitClass(n);
+  proxyClassHandlerAfter(n);
+
+  return returnValue;
+}
+
+/**
+ * Executed by SWIG to manage a declared C++ public variable
+ *
+ * @param n The node representing the public variable
+ * @return status to swig decide what to do
+ */
+int JAVASCRIPT::membervariableHandler(Node *n)
+{
+  proxyMemberVariableHandlerBefore(n);
+  return Language::membervariableHandler(n);
+}
+
+/**
+ * Executed for each enum, found when navigating in the node tree
+ *
+ * @param n The node that represents the enumerated
+ * @return The SWIG status
+ */
+int JAVASCRIPT::enumDeclaration(Node *n)
+{
+  proxyEnumDeclarationBefore(n);
+  Language::enumDeclaration(n);
+  proxyEnumDeclarationAfter();
   return SWIG_OK;
+}
+
+/**
+ * Executed when navigating in the tree, when a value declaration node
+ * is found.
+ *
+ * @param n The node of the value declaration
+ * @return The SWIG status
+ */
+int JAVASCRIPT::enumvalueDeclaration(Node *n)
+{
+  if (generateProxy)
+  {
+    if (proxyEnum)
+    {
+      proxyEnum->addEnumValue(n, Getattr(n, "enumvalue"));
+    }
+  }
+  return Language::enumvalueDeclaration(n);
+}
+
+/**
+ * Handler executed in tree navigation when it encounters a class
+ * member function
+ *
+ * @param n The node that represents class member function
+ * @return SWIG status
+ */
+int JAVASCRIPT::memberfunctionHandler(Node *n)
+{
+  proxyMemberFunctionHandlerBefore(n);
+  return Language::memberfunctionHandler(n);
+}
+
+/**
+ * Class Handler helper to generate Proxy Interface
+ * To be executed in classHandler() before the execution of
+ * LANGUAGE::classhandler()
+ *
+ * @param n The node where the class is described
+ */
+void JAVASCRIPT::proxyClassHandlerBefore(Node *n)
+{
+  if (generateProxy)
+  {
+    proxyInterface = new ProxyInterface(ProxyInterface::interfaceType);
+    proxyInterface->setClassName(Getattr(n, "sym:name"));
+  }
+}
+
+/**
+ * Class Handler helper to generate Proxy Interface
+ * To be executed in classHandler() after the execution of
+ * LANGUAGE::classhandler()
+ *
+ * @param n The node where the class is described
+ */
+void JAVASCRIPT::proxyClassHandlerAfter(Node *n)
+{
+  if (generateProxy)
+  {
+    proxyInterface->setBaseClassName(getBaseClass(n));
+    proxyInterface->generateProxy();
+    delete proxyInterface;
+    proxyInterface = NULL;
+  }
+}
+
+/**
+ * Class Handler helper to generate Proxy Interface
+ * To be executed in classHandler() before the execution of
+ * LANGUAGE::classhandler()
+ *
+ * @param n The node that represents the public class variable
+ */
+void JAVASCRIPT::proxyMemberVariableHandlerBefore(Node *n)
+{
+  if (generateProxy)
+  {
+    String *typescriptProxyType = getTypescriptProxyType(n);
+    proxyInterface->addMemberVariable(n, typescriptProxyType);
+  }
+}
+
+/**
+ * Class member function Handler helper to generate Proxy Interface
+ * To be executed in memberFunctionHandler() before the execution of
+ * LANGUAGE::memberFunctionHandler()
+ *
+ * Polymorphic functions are declared once and the proper mapping
+ * to the native is done in runtime (in C generated wrapper) by checking
+ * the number and type of the parameters.
+ *
+ * Note: as reference see memberFunctionHandler() and
+ * proxyClassFunctionHandler() in Java Module
+ *
+ * @param n The node that represents the function
+ */
+void JAVASCRIPT::proxyMemberFunctionHandlerBefore(Node *n)
+{
+  if (generateProxy)
+  {
+    proxyInterface->addMemberFunction(n);
+  }
+}
+
+/**
+ * Enum Declaration Handler helper to generate Proxy Interface
+ * To be executed in enumDeclaration() before the execution of
+ * LANGUAGE::EnumDeclaration()
+ *
+ * @param n The node that represents the enum
+ */
+void JAVASCRIPT::proxyEnumDeclarationBefore(Node *n) {
+  if (generateProxy)
+  {
+    proxyEnum = new ProxyInterface(ProxyInterface::enumType);
+    proxyEnum->setClassName(Getattr(n, "sym:name"));
+  }
+}
+
+/**
+ * Enum Declaration Handler helper to generate Proxy Interface
+ * To be executed in enumDeclaration() after the execution of
+ * LANGUAGE::EnumDeclaration()
+ *
+ * @param n The node that represents the enum
+ */
+void JAVASCRIPT::proxyEnumDeclarationAfter() {
+  if (generateProxy)
+  {
+    proxyEnum->generateProxy();
+    delete proxyEnum;
+    proxyEnum = NULL;
+  }
+}
+
+/**
+ * Executed when a directive is inserted
+ * Check if the insertion is to be done as "proxycode" and if a class is
+ * being handled (classHandler executed) and if so, store the code in the
+ * object representation of the proxy
+ * If not, execute the standard Language insertDirective
+ * Ignore %proxybasecode because it will be used for base template classes
+ * only.
+ *
+ * @param n The node representing the code
+ * @return SWIG result status
+ */
+int JAVASCRIPT::insertDirective(Node *n)
+{
+  String *code = Getattr(n, "code");
+  String *section = Getattr(n, "section");
+
+  if (Cmp(section, "proxybasecode") == 0)
+  {
+    return SWIG_OK;
+  }
+
+  if (Cmp(section, "proxycode") == 0)
+  {
+    if (proxyInterface)
+    {
+      proxyInterface->insertCode(code);
+      return SWIG_OK;
+    }
+    return SWIG_OK;
+  }
+
+  return Language::insertDirective(n);
+}
+
+/**
+ * Find %insert node that belongs to a node.
+ * Should be used after finding the node where the insert code should be searched
+ *
+ * @param topNode Node where the cod should exist on
+ * @param section The section where yhe code should be inserted
+ */
+Node *JAVASCRIPT::findInsert(Node *topNode, const char *section)
+{
+  if (!topNode)
+  {
+    return NULL;
+  }
+
+  if (isInsert(topNode, section))
+  {
+    Swig_print_node(topNode);
+    return topNode;
+  }
+
+  Node *currentNode = firstChild(topNode);
+  Node *returnNode = 0;
+  while (currentNode)
+  {
+    returnNode = findInsert(currentNode, section);
+    if (returnNode)
+    {
+      return returnNode;
+    }
+    currentNode = nextSibling(currentNode);
+  }
+  return NULL;
+}
+
+
+/**
+ * Try to find a C++ template by name in the node tree.
+ * Navigate in the tree until it founds a template with the wanted name
+ *
+ * @param topNode AST top node
+ * @param name The name of the template to be found
+ * @return The node that represents the template
+ */
+Node *JAVASCRIPT::findTemplate(Node *topNode, const char *name)
+{
+  if (!topNode)
+  {
+    return NULL;
+  }
+
+  if (isTemplate(topNode, name))
+  {
+    Swig_print_node(topNode);
+    return topNode;
+  }
+
+  Node *currentNode = firstChild(topNode);
+  Node *returnNode = 0;
+  while (currentNode)
+  {
+    returnNode = findTemplate(currentNode, name);
+    if (returnNode)
+    {
+      return returnNode;
+    }
+    currentNode = nextSibling(currentNode);
+  }
+  return NULL;
+}
+
+/**
+ * Obtain the information about the base class that a node extends
+ *
+ * 1- If a typemap with name "typescriptbase" exists for the class, then
+ * its value is returned as base class (to be declared in extends). If does
+ * not exist continues to next steps.
+ *
+ * 2 - Get a list of base classes (C++ can have multiple inheritance), from
+ * where get the name of the base class as it should be used in the Proxy Interface.
+ * Note, that if the class is annotated with "feature:ignore" or "feature:interface"
+ * it tries to use next base class.
+ *
+ * @param n The node that represents the class we want the base class to
+ * @return the string representation of the base class name or null if the class
+ * does not extend other(s).
+ */
+String *JAVASCRIPT::getBaseClass(Node *n)
+{
+  String *returnBaseClassName = NULL;
+
+  String *typemapLookupCppType = Getattr(n, "name");
+  String *typescriptTypemapBaseClassName = typemapLookup(n, "typescriptbase", typemapLookupCppType);
+  if (typescriptTypemapBaseClassName && Strcmp(typescriptTypemapBaseClassName, "") != 0)
+  {
+    return typescriptTypemapBaseClassName;
+  }
+
+  List *baselist = Getattr(n, "bases");
+  if (!baselist)
+  {
+    return NULL;
+  }
+
+  Iterator base = First(baselist);
+  bool alreadyHaveBaseClass = false;
+  while (base.item)
+  {
+    if (!(GetFlag(base.item, "feature:ignore") || Getattr(base.item, "feature:interface")))
+    {
+      SwigType *baseclassname = Getattr(base.item, "name");
+      returnBaseClassName = baseclassname;
+
+      String *name = getProxyName(baseclassname);
+      if (name)
+      {
+        returnBaseClassName = name;
+      }
+
+      if (alreadyHaveBaseClass)
+      {
+        String *proxyclassname = Getattr(n, "classtypeobj");
+        Swig_warning(WARN_JAVA_MULTIPLE_INHERITANCE, Getfile(n), Getline(n),
+                     "Warning for %s, base %s ignored. Multiple inheritance is not supported in TypeScript.\n", SwigType_namestr(proxyclassname), SwigType_namestr(baseclassname));
+      }
+      alreadyHaveBaseClass = true;
+    }
+    base = Next(base);
+  }
+  return returnBaseClassName;
+}
+
+/**
+ * Get the name of a Type to be used as TypeScript interface/enum name
+ *
+ * 1 - Try to find a class corresponding to the node received as parameter.
+ * 2 - If the class does not exist try to find an enum
+ * 3 - If a class or an enum does not exist return NULL
+ * 4 - If the node found have already a "proxyname" attribute, return it
+ * 5 - Otherwise get the sym:name property from the class and return it
+ *
+ * @param T A node representing the Type to which is necessary to get the proxyname
+ *
+ * @return A string with the Type name to be used in the TypeScript proxy Interface
+ * or null if cannot find a class or enum or the node does not have "sym:name" property
+ */
+String *JAVASCRIPT::getProxyName(SwigType *t)
+{
+  String *proxyname = NULL;
+
+  Node *n = classLookup(t);
+  if (!n)
+  {
+    n = enumLookup(t);
+  }
+  if (!n)
+  {
+    return NULL;
+  }
+
+  proxyname = Getattr(n, "proxyname");
+  if (proxyname)
+  {
+    return proxyname;
+  }
+
+  String *symname = Getattr(n, "sym:name");
+  if (!symname)
+  {
+    return NULL;
+  }
+  proxyname = Copy(symname);
+  Setattr(n, "proxyname", proxyname); // Cache it
+  return proxyname;
+}
+
+/**
+ * Try to find a typemap related to a node
+ *
+ * @param n for input only and must contain info for Getfile(n) and Getline(n) to work
+ * @param typemapName typemap method name
+ * @param type typemap Type to lookup
+ *
+ * return The typemap or an empty string if the typemap does not exist
+ */
+String *JAVASCRIPT::typemapLookup(Node *n, const char *typemapName, SwigType *type)
+{
+  Node *node = NewHash();
+  Setattr(node, "type", type);
+  Setfile(node, Getfile(n));
+  Setline(node, Getline(n));
+  String *tm = Swig_typemap_lookup(typemapName, node, "", 0);
+  if (!tm)
+  {
+    tm = emptyString;
+  }
+  Delete(node);
+  return tm;
+}
+
+/**
+ * Obtain the type that should be used in the TypeScript proxy
+ * variable declaration.
+ *
+ * First check if there is a direct Typemap "typescripttype" to make
+ * the conversion, and if not try to get the type from the Symbol Table
+ * already converted to appropriate TypeScript type.
+ *
+ * @param n The node representing C++ variable
+ * @return A pointer to a string containing the type that should be used
+ * verbatim in the TypeScript proxy
+ */
+String *JAVASCRIPT::getTypescriptProxyType(Node *n)
+{
+  String *typeFromTypemap;
+  if ((typeFromTypemap = Swig_typemap_lookup("typescripttype", n, "", 0)))
+  {
+    return typeFromTypemap;
+  }
+
+  SwigType *type = Getattr(n, "type");
+  String *typescriptType = getProxyName(type);
+  return typescriptType;
 }
 
 int JAVASCRIPT::fragmentDirective(Node *n) {
@@ -555,6 +1119,9 @@ void JAVASCRIPT::main(int argc, char *argv[]) {
       	}
 	Swig_mark_arg(i);
 	engine = JSEmitter::NodeJS;
+     } else if ((strcmp(argv[i], "-proxy") == 0)) {
+        Swig_mark_arg(i);
+        generateProxy = true;
       } else if (strcmp(argv[i], "-debug-codetemplates") == 0) {
 	Swig_mark_arg(i);
 	js_template_enable_debug = true;
@@ -2486,4 +3053,132 @@ void Template::operator=(const Template & t) {
   Delete(templateName);
   code = NewString(t.code);
   templateName = NewString(t.templateName);
+}
+
+/**
+ * Clean all allocations
+ */
+ProxyInterface::~ProxyInterface()
+{
+  Delete(functionList);
+  Delete(baseClassName);
+  Delete(className);
+  Delete(classFileName);
+  Delete(classFilePath);
+  Delete(variableClassCode);
+  Delete(functionClassCode);
+  Delete(proxyExtraCode);
+}
+
+/**
+ * Generate the code of the interface using the collected information
+ */
+void ProxyInterface::generateProxy()
+{
+  String *classNameKebabCase = Swig_string_kcase(className);
+  classFileName = NewStringf("%s.d.ts", classNameKebabCase);
+  Delete(classNameKebabCase);
+  classFilePath = NewStringf("%s%s", SWIG_output_directory(), classFileName);
+  classFilePtr = NewFile(classFilePath, "w", SWIG_output_files());
+
+  String *proxyTypeName;
+  switch (proxyType)
+  {
+  case classType:
+    proxyTypeName = NewString("class");
+    break;
+  case interfaceType:
+    proxyTypeName = NewString("interface");
+    break;
+  case enumType:
+    proxyTypeName = NewString("declare enum");
+    break;
+  }
+
+  // Inclusion of parent interface when the class extends something
+  if (Len(baseClassName) > 0) {
+    String *baseClassNameKebabCase = Swig_string_kcase(baseClassName);
+    Printf(classFilePtr,"%s\n", "// tslint:disable-next-line:no-reference");
+    Printf(classFilePtr,"/// <reference path='./%s.d.ts' />\n\n", baseClassNameKebabCase);
+    Delete(baseClassNameKebabCase);
+  }
+
+  Printf(classFilePtr, "%s %s ", proxyTypeName, className);
+
+  if ( Len(baseClassName) > 0)
+  {
+    Printf(classFilePtr, "extends %s ", baseClassName);
+  }
+  Printf(classFilePtr, "{\n");
+  Printf(classFilePtr, "%s", variableClassCode);
+
+  List *keys = Keys(functionList);
+  if (Len(keys) > 0)
+  {
+    for (Iterator it = First(keys); it.item; it = Next(it))
+    {
+      Node *function = Getattr(functionList, it.item);
+      Printf(classFilePtr, "   %s: Function;\n", Getattr(function,"sym:name") );
+    }
+  }
+
+  if ( Len(proxyExtraCode) > 0 )
+  Printf(classFilePtr, "\n%s", proxyExtraCode);
+  Printf(classFilePtr, "}\n");
+}
+
+/**
+ * Add a class member variable
+ *
+ * @param n The node where the public variable is declared
+ * @param typescriptType The proper type TypeScript type to be added to the member declaration
+ */
+void ProxyInterface::addMemberVariable(Node *n, String *typescriptType)
+{
+  Printf(variableClassCode, "   %s: %s;\n", Getattr(n, "sym:name"), typescriptType);
+}
+
+/**
+ * Add a class member function
+ *
+ * @param n The node where the public variable is declared
+ * @param typescriptType The proper type TypeScript type to be added to the member declaration
+ */
+void ProxyInterface::addMemberFunction(Node *n)
+{
+  String *functionName = Getattr(n, "sym:name");
+  if (!Getattr(functionList, functionName))
+  {
+    Setattr(functionList, functionName, n);
+    // Printf(variableClassCode, "   %s: Function;\n", Getattr(n, "sym:name"));
+  }
+}
+
+/**
+ * Add an enum value
+ *
+ * @param n The node where the enum value is defined
+ * @param value The value of the enum
+ */
+void ProxyInterface::addEnumValue(Node *n, String *value)
+{
+  if (value)
+  {
+    Printf(variableClassCode, "   %s = %s,\n", Getattr(n, "sym:name"), value);
+  }
+  else
+  {
+    Printf(variableClassCode, "   %s,\n", Getattr(n, "sym:name"));
+  }
+}
+
+/**
+ * Add code found as attribute of the node to the proxy interface
+ * In some types, like std::vector and(or) std::map.
+ *
+ * @param code The code in TypeScript to be added in the interface
+ */
+void ProxyInterface::insertCode(String *code)
+{
+  Printf(proxyExtraCode, "%s", code);
 }
