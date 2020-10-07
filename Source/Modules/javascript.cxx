@@ -117,6 +117,8 @@ public:
     enumType
   };
 
+  String *classFileName;
+
   ProxyInterface(ProxyType pProxyType) : proxyType(pProxyType)
   {
     functionList = NewHash();
@@ -136,7 +138,6 @@ public:
   void insertCode(String *code);
 
 private:
-  String *classFileName;
   String *classFilePath;
 
   Hash *functionList;
@@ -150,6 +151,16 @@ private:
   ProxyType proxyType;
   String *getProxyName(SwigType *t);
 };
+
+/**
+ * Generate Typescript Declaration files for each class or enum.
+ * This implementation iterate in the node AST after all wrapper
+ * been generated in order to not be intrusive in JavaSCript code
+ */
+// class TypeScriptTypeDeclaration {
+//   public:
+//     void emmitTypeScriptDeclarationFiles();
+// };
 
 /**
  * JSEmitter represents an abstraction of javascript code generators
@@ -355,6 +366,7 @@ public:
 
   ~JAVASCRIPT() {
     delete emitter;
+    // Delete(tsDeclarationFileList);
   }
 
   virtual int functionHandler(Node *n);
@@ -390,6 +402,7 @@ private:
   JSEmitter *emitter;
   String *emptyString;
   bool generateProxy;
+  Hash *tsDeclarationFileList;
 
   void proxyClassHandlerBefore(Node *n);
   void proxyClassHandlerAfter(Node *n);
@@ -405,6 +418,7 @@ private:
   void generateBaseInterface(Node *topNode, const char *interfaceName);
   Node *findTemplate(Node *topNode, const char *name);
   Node *findInsert(Node *topNode, const char *section);
+  void emitDeclarationIndex();
   bool isTemplate(Node *n, const char *name)
   {
     if (Strcmp(nodeType(n), "template") == 0 && Strcmp(Getattr(n, "name"), name) == 0)
@@ -706,6 +720,11 @@ void JAVASCRIPT::proxyClassHandlerAfter(Node *n)
   {
     proxyInterface->setBaseClassName(getBaseClass(n));
     proxyInterface->generateProxy();
+    if (!Getattr(tsDeclarationFileList, proxyInterface->classFileName))
+    {
+      String *classFileName = NewString(proxyInterface->classFileName);
+      Setattr(tsDeclarationFileList, classFileName, n);
+    }
     delete proxyInterface;
     proxyInterface = NULL;
   }
@@ -1054,6 +1073,25 @@ int JAVASCRIPT::fragmentDirective(Node *n) {
   return SWIG_OK;
 }
 
+/**
+ * Generate the index file that exports all interfaces from the corresponding
+ * file.
+ */
+void JAVASCRIPT::emitDeclarationIndex() {
+  String *classFilePath = NewStringf("%s%s", SWIG_output_directory(), "index.d.ts");
+  File *indexFilePtr = NewFile(classFilePath, "w", SWIG_output_files());
+  List *keys = Keys(tsDeclarationFileList);
+  if (Len(keys) > 0)
+  {
+    for (Iterator it = First(keys); it.item; it = Next(it))
+    {
+      Node *function = Getattr(tsDeclarationFileList, it.item);
+      Printf(indexFilePtr, "export * from './%s'\n", it.item );
+    }
+  }
+  // Delete(classFilePath);
+}
+
 String *JAVASCRIPT::getNSpace() const {
   return Language::getNSpace();
 }
@@ -1066,13 +1104,14 @@ String *JAVASCRIPT::getNSpace() const {
  * --------------------------------------------------------------------- */
 
 int JAVASCRIPT::top(Node *n) {
+  tsDeclarationFileList = NewHash();
   emitter->initialize(n);
 
   Language::top(n);
 
   emitter->dump(n);
   emitter->close();
-
+  emitDeclarationIndex();
   return SWIG_OK;
 }
 
@@ -1119,7 +1158,7 @@ void JAVASCRIPT::main(int argc, char *argv[]) {
       	}
 	Swig_mark_arg(i);
 	engine = JSEmitter::NodeJS;
-     } else if ((strcmp(argv[i], "-proxy") == 0)) {
+      } else if ((strcmp(argv[i], "-proxy") == 0)) {
         Swig_mark_arg(i);
         generateProxy = true;
       } else if (strcmp(argv[i], "-debug-codetemplates") == 0) {
