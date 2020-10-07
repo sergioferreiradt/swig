@@ -129,7 +129,7 @@ public:
     baseClassName = NewString("");
   };
   ~ProxyInterface();
-  void generateProxy();
+  void generateTsTypes();
   void setClassName(String *name) { Printf(className, "%s", name); }
   void setBaseClassName(String *name) { Printf(baseClassName, "%s", name); }
   void addMemberVariable(Node *n, String *typescriptType);
@@ -361,7 +361,7 @@ class JAVASCRIPT:public Language {
 
 public:
 
-  JAVASCRIPT() : emitter(NULL), emptyString(NewString("")), generateProxy(false) {
+  JAVASCRIPT() : emitter(NULL), emptyString(NewString("")), generateTsTypes(false) {
   }
 
   ~JAVASCRIPT() {
@@ -401,7 +401,7 @@ public:
 private:
   JSEmitter *emitter;
   String *emptyString;
-  bool generateProxy;
+  bool generateTsTypes;
   Hash *tsDeclarationFileList;
 
   void proxyClassHandlerBefore(Node *n);
@@ -668,7 +668,7 @@ int JAVASCRIPT::enumDeclaration(Node *n)
  */
 int JAVASCRIPT::enumvalueDeclaration(Node *n)
 {
-  if (generateProxy)
+  if (generateTsTypes)
   {
     if (proxyEnum)
     {
@@ -700,7 +700,7 @@ int JAVASCRIPT::memberfunctionHandler(Node *n)
  */
 void JAVASCRIPT::proxyClassHandlerBefore(Node *n)
 {
-  if (generateProxy)
+  if (generateTsTypes)
   {
     proxyInterface = new ProxyInterface(ProxyInterface::interfaceType);
     proxyInterface->setClassName(Getattr(n, "sym:name"));
@@ -716,10 +716,10 @@ void JAVASCRIPT::proxyClassHandlerBefore(Node *n)
  */
 void JAVASCRIPT::proxyClassHandlerAfter(Node *n)
 {
-  if (generateProxy)
+  if (generateTsTypes)
   {
     proxyInterface->setBaseClassName(getBaseClass(n));
-    proxyInterface->generateProxy();
+    proxyInterface->generateTsTypes();
     if (!Getattr(tsDeclarationFileList, proxyInterface->classFileName))
     {
       String *classFileName = NewString(proxyInterface->classFileName);
@@ -739,7 +739,7 @@ void JAVASCRIPT::proxyClassHandlerAfter(Node *n)
  */
 void JAVASCRIPT::proxyMemberVariableHandlerBefore(Node *n)
 {
-  if (generateProxy)
+  if (generateTsTypes)
   {
     String *typescriptProxyType = getTypescriptProxyType(n);
     proxyInterface->addMemberVariable(n, typescriptProxyType);
@@ -762,7 +762,7 @@ void JAVASCRIPT::proxyMemberVariableHandlerBefore(Node *n)
  */
 void JAVASCRIPT::proxyMemberFunctionHandlerBefore(Node *n)
 {
-  if (generateProxy)
+  if (generateTsTypes)
   {
     proxyInterface->addMemberFunction(n);
   }
@@ -776,7 +776,7 @@ void JAVASCRIPT::proxyMemberFunctionHandlerBefore(Node *n)
  * @param n The node that represents the enum
  */
 void JAVASCRIPT::proxyEnumDeclarationBefore(Node *n) {
-  if (generateProxy)
+  if (generateTsTypes)
   {
     proxyEnum = new ProxyInterface(ProxyInterface::enumType);
     proxyEnum->setClassName(Getattr(n, "sym:name"));
@@ -791,9 +791,9 @@ void JAVASCRIPT::proxyEnumDeclarationBefore(Node *n) {
  * @param n The node that represents the enum
  */
 void JAVASCRIPT::proxyEnumDeclarationAfter() {
-  if (generateProxy)
+  if (generateTsTypes)
   {
-    proxyEnum->generateProxy();
+    proxyEnum->generateTsTypes();
     delete proxyEnum;
     proxyEnum = NULL;
   }
@@ -1158,9 +1158,9 @@ void JAVASCRIPT::main(int argc, char *argv[]) {
       	}
 	Swig_mark_arg(i);
 	engine = JSEmitter::NodeJS;
-      } else if ((strcmp(argv[i], "-proxy") == 0)) {
+      } else if ((strcmp(argv[i], "-tstypes") == 0)) {
         Swig_mark_arg(i);
-        generateProxy = true;
+        generateTsTypes = true;
       } else if (strcmp(argv[i], "-debug-codetemplates") == 0) {
 	Swig_mark_arg(i);
 	js_template_enable_debug = true;
@@ -3112,7 +3112,7 @@ ProxyInterface::~ProxyInterface()
 /**
  * Generate the code of the interface using the collected information
  */
-void ProxyInterface::generateProxy()
+void ProxyInterface::generateTsTypes()
 {
   String *classNameKebabCase = Swig_string_kcase(className);
   classFileName = NewStringf("%s.d.ts", classNameKebabCase);
