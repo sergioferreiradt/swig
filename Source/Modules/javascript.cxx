@@ -365,6 +365,9 @@ public:
   TsTypeInterface *tsTypeEnum;
 
   TypeScriptTypes() : emptyString(NewString("")), generateTsTypes(false) {}
+  ~TypeScriptTypes() {
+    Delete(tsDeclarationFileList);
+  }
   virtual int classHandler(Node *n);
   virtual int membervariableHandler(Node *n);
   virtual int memberfunctionHandler(Node *n);
@@ -386,7 +389,25 @@ private:
   String *getTsTypeName(SwigType *t);
   String *typemapLookup(Node *n, const char *typemapName, SwigType *type);
   String *getTypescriptType(Node *n);
+  void generateBaseInterfaces(Node *topNode);
+  void generateBaseInterface(Node *topNode, const char *interfaceName);
+  Node *findTemplate(Node *topNode, const char *name);
+  Node *findInsert(Node *topNode, const char *section);
   void emitDeclarationIndex();
+
+  bool isTemplate(Node *n, const char *name)
+  {
+    if (Strcmp(nodeType(n), "template") == 0 && Strcmp(Getattr(n, "name"), name) == 0)
+      return true;
+    return false;
+  }
+
+  bool isInsert(Node *n, const char *section)
+  {
+    if (Strcmp(nodeType(n), "insert") == 0 && Strcmp(Getattr(n, "section"), section) == 0)
+      return true;
+    return false;
+  }
 };
 
 /**********************************************************************
@@ -396,12 +417,11 @@ class JAVASCRIPT:public TypeScriptTypes {
 
 public:
 
-  JAVASCRIPT() : emitter(NULL), emptyString(NewString("")) {
+  JAVASCRIPT() : emitter(NULL) {
   }
 
   ~JAVASCRIPT() {
     delete emitter;
-    // Delete(tsDeclarationFileList);
   }
 
   virtual int functionHandler(Node *n);
@@ -426,47 +446,13 @@ public:
    **/
   virtual int fragmentDirective(Node *n);
 
-  TsTypeInterface *tsTypeInterface;
-  TsTypeInterface *tsTypeEnum;
-
 public:
 
   virtual String *getNSpace() const;
 
 private:
   JSEmitter *emitter;
-  String *emptyString;
-  // bool generateTsTypes;
-  Hash *tsDeclarationFileList;
 
-  // void tsTypeClassHandlerBefore(Node *n);
-  // void tsTypeClassHandlerAfter(Node *n);
-  // void tsTypeMemberVariableHandlerBefore(Node *n);
-  // void tsTypeMemberFunctionHandlerBefore(Node *n);
-  // void tsTypeEnumDeclarationBefore(Node *n);
-  // void tsTypeEnumDeclarationAfter();
-  String *getBaseClass(Node *n);
-  String *getTsTypeName(SwigType *t);
-  String *typemapLookup(Node *n, const char *typemapName, SwigType *type);
-  String *getTypescriptType(Node *n);
-  void generateBaseInterfaces(Node *topNode);
-  void generateBaseInterface(Node *topNode, const char *interfaceName);
-  Node *findTemplate(Node *topNode, const char *name);
-  Node *findInsert(Node *topNode, const char *section);
-  void emitDeclarationIndex();
-  bool isTemplate(Node *n, const char *name)
-  {
-    if (Strcmp(nodeType(n), "template") == 0 && Strcmp(Getattr(n, "name"), name) == 0)
-      return true;
-    return false;
-  }
-
-  bool isInsert(Node *n, const char *section)
-  {
-    if (Strcmp(nodeType(n), "insert") == 0 && Strcmp(Getattr(n, "section"), section) == 0)
-      return true;
-    return false;
-  }
 };
 
 /**
@@ -727,116 +713,6 @@ int JAVASCRIPT::memberfunctionHandler(Node *n)
   return TypeScriptTypes::memberfunctionHandler(n);
 }
 
-/**
- * Class Handler helper to generate TypeScript Type Definition Interface
- * To be executed in classHandler() before the execution of
- * LANGUAGE::classhandler()
- *
- * @param n The node where the class is described
- */
-// void JAVASCRIPT::tsTypeClassHandlerBefore(Node *n)
-// {
-//   if (generateTsTypes)
-//   {
-//     tsTypeInterface = new TsTypeInterface(TsTypeInterface::interfaceType);
-//     tsTypeInterface->setClassName(Getattr(n, "sym:name"));
-//   }
-// }
-
-/**
- * Class Handler helper to generate TypeScript Type Definition Interface
- * To be executed in classHandler() after the execution of
- * LANGUAGE::classhandler()
- *
- * @param n The node where the class is described
- */
-// void JAVASCRIPT::tsTypeClassHandlerAfter(Node *n)
-// {
-//   if (generateTsTypes)
-//   {
-//     tsTypeInterface->setBaseClassName(getBaseClass(n));
-//     tsTypeInterface->generateTsTypes();
-//     if (!Getattr(tsDeclarationFileList, tsTypeInterface->classFileName))
-//     {
-//       String *classFileName = NewString(tsTypeInterface->classFileName);
-//       Setattr(tsDeclarationFileList, classFileName, n);
-//     }
-//     delete tsTypeInterface;
-//     tsTypeInterface = NULL;
-//   }
-// }
-
-/**
- * Class Handler helper to generate TypeScript Type Definition Interface
- * To be executed in classHandler() before the execution of
- * LANGUAGE::classhandler()
- *
- * @param n The node that represents the public class variable
- */
-// void JAVASCRIPT::tsTypeMemberVariableHandlerBefore(Node *n)
-// {
-//   if (generateTsTypes)
-//   {
-//     String *typescriptType = getTypescriptType(n);
-//     tsTypeInterface->addMemberVariable(n, typescriptType);
-//   }
-// }
-
-/**
- * Class member function Handler helper to generate TypeScript Type Definition
- * Interface.
- * To be executed in memberFunctionHandler() before the execution of
- * LANGUAGE::memberFunctionHandler()
- *
- * Polymorphic functions are declared once and the proper mapping
- * to the native is done in runtime (in C generated wrapper) by checking
- * the number and type of the parameters.
- *
- * Note: as reference see memberFunctionHandler() and
- * proxyClassFunctionHandler() in Java Module
- *
- * @param n The node that represents the function
- */
-// void JAVASCRIPT::tsTypeMemberFunctionHandlerBefore(Node *n)
-// {
-//   if (generateTsTypes)
-//   {
-//     tsTypeInterface->addMemberFunction(n);
-//   }
-// }
-
-/**
- * Enum Declaration Handler helper to generate TypeScript Type Definition
- * Interface.
- * To be executed in enumDeclaration() before the execution of
- * LANGUAGE::EnumDeclaration()
- *
- * @param n The node that represents the enum
- */
-// void JAVASCRIPT::tsTypeEnumDeclarationBefore(Node *n) {
-//   if (generateTsTypes)
-//   {
-//     tsTypeEnum = new TsTypeInterface(TsTypeInterface::enumType);
-//     tsTypeEnum->setClassName(Getattr(n, "sym:name"));
-//   }
-// }
-
-/**
- * Enum Declaration Handler helper to generate TypeScript Type Definition
- * Interface.
- * To be executed in enumDeclaration() after the execution of
- * LANGUAGE::EnumDeclaration()
- *
- * @param n The node that represents the enum
- */
-// void JAVASCRIPT::tsTypeEnumDeclarationAfter() {
-//   if (generateTsTypes)
-//   {
-//     tsTypeEnum->generateTsTypes();
-//     delete tsTypeEnum;
-//     tsTypeEnum = NULL;
-//   }
-// }
 
 /**
  * Executed when a directive is inserted
@@ -872,230 +748,6 @@ int JAVASCRIPT::insertDirective(Node *n)
   return Language::insertDirective(n);
 }
 
-/**
- * Find %insert node that belongs to a node.
- * Should be used after finding the node where the insert code should be searched
- *
- * @param topNode Node where the cod should exist on
- * @param section The section where yhe code should be inserted
- */
-Node *JAVASCRIPT::findInsert(Node *topNode, const char *section)
-{
-  if (!topNode)
-  {
-    return NULL;
-  }
-
-  if (isInsert(topNode, section))
-  {
-    Swig_print_node(topNode);
-    return topNode;
-  }
-
-  Node *currentNode = firstChild(topNode);
-  Node *returnNode = 0;
-  while (currentNode)
-  {
-    returnNode = findInsert(currentNode, section);
-    if (returnNode)
-    {
-      return returnNode;
-    }
-    currentNode = nextSibling(currentNode);
-  }
-  return NULL;
-}
-
-
-/**
- * Try to find a C++ template by name in the node tree.
- * Navigate in the tree until it founds a template with the wanted name
- *
- * @param topNode AST top node
- * @param name The name of the template to be found
- * @return The node that represents the template
- */
-Node *JAVASCRIPT::findTemplate(Node *topNode, const char *name)
-{
-  if (!topNode)
-  {
-    return NULL;
-  }
-
-  if (isTemplate(topNode, name))
-  {
-    Swig_print_node(topNode);
-    return topNode;
-  }
-
-  Node *currentNode = firstChild(topNode);
-  Node *returnNode = 0;
-  while (currentNode)
-  {
-    returnNode = findTemplate(currentNode, name);
-    if (returnNode)
-    {
-      return returnNode;
-    }
-    currentNode = nextSibling(currentNode);
-  }
-  return NULL;
-}
-
-/**
- * Obtain the information about the base class that a node extends
- *
- * 1- If a typemap with name "typescriptbase" exists for the class, then
- * its value is returned as base class (to be declared in extends). If does
- * not exist continues to next steps.
- *
- * 2 - Get a list of base classes (C++ can have multiple inheritance), from
- * where get the name of the base class as it should be used in the TypeScript Type
- * Type definition Interface.
- * Note, that if the class is annotated with "feature:ignore" or "feature:interface"
- * it tries to use next base class.
- *
- * @param n The node that represents the class we want the base class to
- * @return the string representation of the base class name or null if the class
- * does not extend other(s).
- */
-String *JAVASCRIPT::getBaseClass(Node *n)
-{
-  String *returnBaseClassName = NULL;
-
-  String *typemapLookupCppType = Getattr(n, "name");
-  String *typescriptTypemapBaseClassName = typemapLookup(n, "typescriptbase", typemapLookupCppType);
-  if (typescriptTypemapBaseClassName && Strcmp(typescriptTypemapBaseClassName, "") != 0)
-  {
-    return typescriptTypemapBaseClassName;
-  }
-
-  List *baselist = Getattr(n, "bases");
-  if (!baselist)
-  {
-    return NULL;
-  }
-
-  Iterator base = First(baselist);
-  bool alreadyHaveBaseClass = false;
-  while (base.item)
-  {
-    if (!(GetFlag(base.item, "feature:ignore") || Getattr(base.item, "feature:interface")))
-    {
-      SwigType *baseclassname = Getattr(base.item, "name");
-      returnBaseClassName = baseclassname;
-
-      String *name = getTsTypeName(baseclassname);
-      if (name)
-      {
-        returnBaseClassName = name;
-      }
-
-      if (alreadyHaveBaseClass)
-      {
-        String *tsTypeClassName = Getattr(n, "classtypeobj");
-        Swig_warning(WARN_JAVA_MULTIPLE_INHERITANCE, Getfile(n), Getline(n),
-                     "Warning for %s, base %s ignored. Multiple inheritance is not supported in TypeScript.\n", SwigType_namestr(tsTypeClassName), SwigType_namestr(baseclassname));
-      }
-      alreadyHaveBaseClass = true;
-    }
-    base = Next(base);
-  }
-  return returnBaseClassName;
-}
-
-/**
- * Get the name of a Type to be used as TypeScript interface/enum name
- *
- * 1 - Try to find a class corresponding to the node received as parameter.
- * 2 - If the class does not exist try to find an enum
- * 3 - If a class or an enum does not exist return NULL
- * 4 - If the node found have already a "proxyname" attribute, return it
- * 5 - Otherwise get the sym:name property from the class and return it
- *
- * @param T A node representing the Type to which is necessary to get the proxyname
- *
- * @return A string with the Type name to be used in the TypeScript Type Definition
- * Interface or null if cannot find a class or enum or the node does not have "sym:name" property
- */
-String *JAVASCRIPT::getTsTypeName(SwigType *t)
-{
-  String *tsTypeName = NULL;
-
-  Node *n = classLookup(t);
-  if (!n)
-  {
-    n = enumLookup(t);
-  }
-  if (!n)
-  {
-    return NULL;
-  }
-
-  tsTypeName = Getattr(n, "proxyname");
-  if (tsTypeName)
-  {
-    return tsTypeName;
-  }
-
-  String *symname = Getattr(n, "sym:name");
-  if (!symname)
-  {
-    return NULL;
-  }
-  tsTypeName = Copy(symname);
-  Setattr(n, "proxyname", tsTypeName); // Cache it
-  return tsTypeName;
-}
-
-/**
- * Try to find a typemap related to a node
- *
- * @param n for input only and must contain info for Getfile(n) and Getline(n) to work
- * @param typemapName typemap method name
- * @param type typemap Type to lookup
- *
- * return The typemap or an empty string if the typemap does not exist
- */
-String *JAVASCRIPT::typemapLookup(Node *n, const char *typemapName, SwigType *type)
-{
-  Node *node = NewHash();
-  Setattr(node, "type", type);
-  Setfile(node, Getfile(n));
-  Setline(node, Getline(n));
-  String *tm = Swig_typemap_lookup(typemapName, node, "", 0);
-  if (!tm)
-  {
-    tm = emptyString;
-  }
-  Delete(node);
-  return tm;
-}
-
-/**
- * Obtain the type that should be used in the TypeScript Type Definition
- * variable declaration.
- *
- * First check if there is a direct Typemap "typescripttype" to make
- * the conversion, and if not try to get the type from the Symbol Table
- * already converted to appropriate TypeScript type.
- *
- * @param n The node representing C++ variable
- * @return A pointer to a string containing the type that should be used
- * verbatim in the TypeScript Type Definition
- */
-String *JAVASCRIPT::getTypescriptType(Node *n)
-{
-  String *typeFromTypemap;
-  if ((typeFromTypemap = Swig_typemap_lookup("typescripttype", n, "", 0)))
-  {
-    return typeFromTypemap;
-  }
-
-  SwigType *type = Getattr(n, "type");
-  String *typescriptType = getTsTypeName(type);
-  return typescriptType;
-}
 
 int JAVASCRIPT::fragmentDirective(Node *n) {
 
@@ -1112,25 +764,6 @@ int JAVASCRIPT::fragmentDirective(Node *n) {
   return SWIG_OK;
 }
 
-/**
- * Generate the index file that exports all interfaces from the corresponding
- * file.
- */
-void JAVASCRIPT::emitDeclarationIndex() {
-  String *classFilePath = NewStringf("%s%s", SWIG_output_directory(), "index.d.ts");
-  File *indexFilePtr = NewFile(classFilePath, "w", SWIG_output_files());
-  List *keys = Keys(tsDeclarationFileList);
-  if (Len(keys) > 0)
-  {
-    for (Iterator it = First(keys); it.item; it = Next(it))
-    {
-      Node *function = Getattr(tsDeclarationFileList, it.item);
-      Printf(indexFilePtr, "export * from './%s'\n", it.item );
-    }
-  }
-  // Delete(classFilePath);
-}
-
 String *JAVASCRIPT::getNSpace() const {
   return Language::getNSpace();
 }
@@ -1143,15 +776,12 @@ String *JAVASCRIPT::getNSpace() const {
  * --------------------------------------------------------------------- */
 
 int JAVASCRIPT::top(Node *n) {
-  Printf(stdout,"###### JAVASCRIPT top()\n");
-  // tsDeclarationFileList = NewHash();
   emitter->initialize(n);
 
   TypeScriptTypes::top(n);
 
   emitter->dump(n);
   emitter->close();
-  // emitDeclarationIndex();
   return SWIG_OK;
 }
 
@@ -3266,7 +2896,6 @@ void TsTypeInterface::insertCode(String *code)
 // TypeScritTypes intermediate class methods implementation
 
 int TypeScriptTypes::top(Node *n) {
-  Printf(stdout,"######## TOP\n");
   tsDeclarationFileList = NewHash();
   Language::top(n);
   emitDeclarationIndex();
@@ -3284,11 +2913,9 @@ int TypeScriptTypes::top(Node *n) {
  */
 int TypeScriptTypes::classHandler(Node *n)
 {
-  Printf(stdout,"######## classHandler()\n");
   tsTypeClassHandlerBefore(n);
   int returnValue = Language::classHandler(n);
   tsTypeClassHandlerAfter(n);
-Printf(stdout,"######## exit classHandler()\n");
   return returnValue;
 }
 
@@ -3634,4 +3261,75 @@ int TypeScriptTypes::memberfunctionHandler(Node *n)
 {
   tsTypeMemberFunctionHandlerBefore(n);
   return Language::memberfunctionHandler(n);
+}
+
+
+/**
+ * Find %insert node that belongs to a node.
+ * Should be used after finding the node where the insert code should be searched
+ *
+ * @param topNode Node where the cod should exist on
+ * @param section The section where yhe code should be inserted
+ */
+Node *TypeScriptTypes::findInsert(Node *topNode, const char *section)
+{
+  if (!topNode)
+  {
+    return NULL;
+  }
+
+  if (isInsert(topNode, section))
+  {
+    Swig_print_node(topNode);
+    return topNode;
+  }
+
+  Node *currentNode = firstChild(topNode);
+  Node *returnNode = 0;
+  while (currentNode)
+  {
+    returnNode = findInsert(currentNode, section);
+    if (returnNode)
+    {
+      return returnNode;
+    }
+    currentNode = nextSibling(currentNode);
+  }
+  return NULL;
+}
+
+
+/**
+ * Try to find a C++ template by name in the node tree.
+ * Navigate in the tree until it founds a template with the wanted name
+ *
+ * @param topNode AST top node
+ * @param name The name of the template to be found
+ * @return The node that represents the template
+ */
+Node *TypeScriptTypes::findTemplate(Node *topNode, const char *name)
+{
+  if (!topNode)
+  {
+    return NULL;
+  }
+
+  if (isTemplate(topNode, name))
+  {
+    Swig_print_node(topNode);
+    return topNode;
+  }
+
+  Node *currentNode = firstChild(topNode);
+  Node *returnNode = 0;
+  while (currentNode)
+  {
+    returnNode = findTemplate(currentNode, name);
+    if (returnNode)
+    {
+      return returnNode;
+    }
+    currentNode = nextSibling(currentNode);
+  }
+  return NULL;
 }
