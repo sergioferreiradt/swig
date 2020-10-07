@@ -105,12 +105,12 @@ private:
 };
 
 /**
- * Typescript Proxy emitter helper
+ * Typescript Type definition emitter helper
  */
-class ProxyInterface
+class TsTypeInterface
 {
 public:
-  enum ProxyType
+  enum TsType
   {
     classType,
     interfaceType,
@@ -119,16 +119,16 @@ public:
 
   String *classFileName;
 
-  ProxyInterface(ProxyType pProxyType) : proxyType(pProxyType)
+  TsTypeInterface(TsType pTsType) : tsType(pTsType)
   {
     functionList = NewHash();
     variableClassCode = NewString("");
     functionClassCode = NewString("");
-    proxyExtraCode = NewString("");
+    tsTypeExtraCode = NewString("");
     className = NewString("");
     baseClassName = NewString("");
   };
-  ~ProxyInterface();
+  ~TsTypeInterface();
   void generateTsTypes();
   void setClassName(String *name) { Printf(className, "%s", name); }
   void setBaseClassName(String *name) { Printf(baseClassName, "%s", name); }
@@ -146,10 +146,10 @@ private:
   String *baseClassName;
   String *variableClassCode;
   String *functionClassCode;
-  String *proxyExtraCode;
+  String *tsTypeExtraCode;
   File *classFilePtr;
-  ProxyType proxyType;
-  String *getProxyName(SwigType *t);
+  TsType tsType;
+  String *getTsTypeName(SwigType *t);
 };
 
 /**
@@ -353,15 +353,50 @@ JSEmitter *swig_javascript_create_JSCEmitter();
 JSEmitter *swig_javascript_create_V8Emitter();
 JSEmitter *swig_javascript_create_NodeJSEmitter();
 
+/**
+ * Intermediate class to generate TypeScript Type Definition Files
+ */
+class TypeScriptTypes: public Language {
+
+public:
+  bool generateTsTypes;
+  String *emptyString;
+  TsTypeInterface *tsTypeInterface;
+  TsTypeInterface *tsTypeEnum;
+
+  TypeScriptTypes() : emptyString(NewString("")), generateTsTypes(false) {}
+  virtual int classHandler(Node *n);
+  virtual int membervariableHandler(Node *n);
+  virtual int memberfunctionHandler(Node *n);
+  virtual int enumDeclaration(Node *n);
+  virtual int enumvalueDeclaration(Node *n);
+  virtual int top(Node *n);
+
+private:
+  Hash *tsDeclarationFileList;
+
+  void tsTypeClassHandlerBefore(Node *n);
+  void tsTypeClassHandlerAfter(Node *n);
+  void tsTypeMemberVariableHandlerBefore(Node *n);
+  void tsTypeMemberFunctionHandlerBefore(Node *n);
+  void tsTypeEnumDeclarationBefore(Node *n);
+  void tsTypeEnumDeclarationAfter();
+
+  String *getBaseClass(Node *n);
+  String *getTsTypeName(SwigType *t);
+  String *typemapLookup(Node *n, const char *typemapName, SwigType *type);
+  String *getTypescriptType(Node *n);
+  void emitDeclarationIndex();
+};
+
 /**********************************************************************
  * JAVASCRIPT: SWIG module implementation
  **********************************************************************/
-
-class JAVASCRIPT:public Language {
+class JAVASCRIPT:public TypeScriptTypes {
 
 public:
 
-  JAVASCRIPT() : emitter(NULL), emptyString(NewString("")), generateTsTypes(false) {
+  JAVASCRIPT() : emitter(NULL), emptyString(NewString("")) {
   }
 
   ~JAVASCRIPT() {
@@ -391,8 +426,8 @@ public:
    **/
   virtual int fragmentDirective(Node *n);
 
-  ProxyInterface *proxyInterface;
-  ProxyInterface *proxyEnum;
+  TsTypeInterface *tsTypeInterface;
+  TsTypeInterface *tsTypeEnum;
 
 public:
 
@@ -401,19 +436,19 @@ public:
 private:
   JSEmitter *emitter;
   String *emptyString;
-  bool generateTsTypes;
+  // bool generateTsTypes;
   Hash *tsDeclarationFileList;
 
-  void proxyClassHandlerBefore(Node *n);
-  void proxyClassHandlerAfter(Node *n);
-  void proxyMemberVariableHandlerBefore(Node *n);
-  void proxyMemberFunctionHandlerBefore(Node *n);
-  void proxyEnumDeclarationBefore(Node *n);
-  void proxyEnumDeclarationAfter();
+  // void tsTypeClassHandlerBefore(Node *n);
+  // void tsTypeClassHandlerAfter(Node *n);
+  // void tsTypeMemberVariableHandlerBefore(Node *n);
+  // void tsTypeMemberFunctionHandlerBefore(Node *n);
+  // void tsTypeEnumDeclarationBefore(Node *n);
+  // void tsTypeEnumDeclarationAfter();
   String *getBaseClass(Node *n);
-  String *getProxyName(SwigType *t);
+  String *getTsTypeName(SwigType *t);
   String *typemapLookup(Node *n, const char *typemapName, SwigType *type);
-  String *getTypescriptProxyType(Node *n);
+  String *getTypescriptType(Node *n);
   void generateBaseInterfaces(Node *topNode);
   void generateBaseInterface(Node *topNode, const char *interfaceName);
   Node *findTemplate(Node *topNode, const char *name);
@@ -625,12 +660,13 @@ int JAVASCRIPT::classHandler(Node *n)
 
   emitter->enterClass(n);
 
-  proxyClassHandlerBefore(n);
-  int returnValue = Language::classHandler(n);
-  emitter->exitClass(n);
-  proxyClassHandlerAfter(n);
+  // tsTypeClassHandlerBefore(n);
+  // int returnValue = Language::classHandler(n);
+  // emitter->exitClass(n);
+  // tsTypeClassHandlerAfter(n);
 
-  return returnValue;
+  // return returnValue;
+  return TypeScriptTypes::classHandler(n);
 }
 
 /**
@@ -641,8 +677,8 @@ int JAVASCRIPT::classHandler(Node *n)
  */
 int JAVASCRIPT::membervariableHandler(Node *n)
 {
-  proxyMemberVariableHandlerBefore(n);
-  return Language::membervariableHandler(n);
+  // tsTypeMemberVariableHandlerBefore(n);
+  return TypeScriptTypes::membervariableHandler(n);
 }
 
 /**
@@ -653,9 +689,9 @@ int JAVASCRIPT::membervariableHandler(Node *n)
  */
 int JAVASCRIPT::enumDeclaration(Node *n)
 {
-  proxyEnumDeclarationBefore(n);
-  Language::enumDeclaration(n);
-  proxyEnumDeclarationAfter();
+  // tsTypeEnumDeclarationBefore(n);
+  TypeScriptTypes::enumDeclaration(n);
+  // tsTypeEnumDeclarationAfter();
   return SWIG_OK;
 }
 
@@ -668,14 +704,14 @@ int JAVASCRIPT::enumDeclaration(Node *n)
  */
 int JAVASCRIPT::enumvalueDeclaration(Node *n)
 {
-  if (generateTsTypes)
-  {
-    if (proxyEnum)
-    {
-      proxyEnum->addEnumValue(n, Getattr(n, "enumvalue"));
-    }
-  }
-  return Language::enumvalueDeclaration(n);
+  // if (generateTsTypes)
+  // {
+  //   if (tsTypeEnum)
+  //   {
+  //     tsTypeEnum->addEnumValue(n, Getattr(n, "enumvalue"));
+  //   }
+  // }
+  return TypeScriptTypes::enumvalueDeclaration(n);
 }
 
 /**
@@ -687,67 +723,68 @@ int JAVASCRIPT::enumvalueDeclaration(Node *n)
  */
 int JAVASCRIPT::memberfunctionHandler(Node *n)
 {
-  proxyMemberFunctionHandlerBefore(n);
-  return Language::memberfunctionHandler(n);
+  // tsTypeMemberFunctionHandlerBefore(n);
+  return TypeScriptTypes::memberfunctionHandler(n);
 }
 
 /**
- * Class Handler helper to generate Proxy Interface
+ * Class Handler helper to generate TypeScript Type Definition Interface
  * To be executed in classHandler() before the execution of
  * LANGUAGE::classhandler()
  *
  * @param n The node where the class is described
  */
-void JAVASCRIPT::proxyClassHandlerBefore(Node *n)
-{
-  if (generateTsTypes)
-  {
-    proxyInterface = new ProxyInterface(ProxyInterface::interfaceType);
-    proxyInterface->setClassName(Getattr(n, "sym:name"));
-  }
-}
+// void JAVASCRIPT::tsTypeClassHandlerBefore(Node *n)
+// {
+//   if (generateTsTypes)
+//   {
+//     tsTypeInterface = new TsTypeInterface(TsTypeInterface::interfaceType);
+//     tsTypeInterface->setClassName(Getattr(n, "sym:name"));
+//   }
+// }
 
 /**
- * Class Handler helper to generate Proxy Interface
+ * Class Handler helper to generate TypeScript Type Definition Interface
  * To be executed in classHandler() after the execution of
  * LANGUAGE::classhandler()
  *
  * @param n The node where the class is described
  */
-void JAVASCRIPT::proxyClassHandlerAfter(Node *n)
-{
-  if (generateTsTypes)
-  {
-    proxyInterface->setBaseClassName(getBaseClass(n));
-    proxyInterface->generateTsTypes();
-    if (!Getattr(tsDeclarationFileList, proxyInterface->classFileName))
-    {
-      String *classFileName = NewString(proxyInterface->classFileName);
-      Setattr(tsDeclarationFileList, classFileName, n);
-    }
-    delete proxyInterface;
-    proxyInterface = NULL;
-  }
-}
+// void JAVASCRIPT::tsTypeClassHandlerAfter(Node *n)
+// {
+//   if (generateTsTypes)
+//   {
+//     tsTypeInterface->setBaseClassName(getBaseClass(n));
+//     tsTypeInterface->generateTsTypes();
+//     if (!Getattr(tsDeclarationFileList, tsTypeInterface->classFileName))
+//     {
+//       String *classFileName = NewString(tsTypeInterface->classFileName);
+//       Setattr(tsDeclarationFileList, classFileName, n);
+//     }
+//     delete tsTypeInterface;
+//     tsTypeInterface = NULL;
+//   }
+// }
 
 /**
- * Class Handler helper to generate Proxy Interface
+ * Class Handler helper to generate TypeScript Type Definition Interface
  * To be executed in classHandler() before the execution of
  * LANGUAGE::classhandler()
  *
  * @param n The node that represents the public class variable
  */
-void JAVASCRIPT::proxyMemberVariableHandlerBefore(Node *n)
-{
-  if (generateTsTypes)
-  {
-    String *typescriptProxyType = getTypescriptProxyType(n);
-    proxyInterface->addMemberVariable(n, typescriptProxyType);
-  }
-}
+// void JAVASCRIPT::tsTypeMemberVariableHandlerBefore(Node *n)
+// {
+//   if (generateTsTypes)
+//   {
+//     String *typescriptType = getTypescriptType(n);
+//     tsTypeInterface->addMemberVariable(n, typescriptType);
+//   }
+// }
 
 /**
- * Class member function Handler helper to generate Proxy Interface
+ * Class member function Handler helper to generate TypeScript Type Definition
+ * Interface.
  * To be executed in memberFunctionHandler() before the execution of
  * LANGUAGE::memberFunctionHandler()
  *
@@ -760,50 +797,52 @@ void JAVASCRIPT::proxyMemberVariableHandlerBefore(Node *n)
  *
  * @param n The node that represents the function
  */
-void JAVASCRIPT::proxyMemberFunctionHandlerBefore(Node *n)
-{
-  if (generateTsTypes)
-  {
-    proxyInterface->addMemberFunction(n);
-  }
-}
+// void JAVASCRIPT::tsTypeMemberFunctionHandlerBefore(Node *n)
+// {
+//   if (generateTsTypes)
+//   {
+//     tsTypeInterface->addMemberFunction(n);
+//   }
+// }
 
 /**
- * Enum Declaration Handler helper to generate Proxy Interface
+ * Enum Declaration Handler helper to generate TypeScript Type Definition
+ * Interface.
  * To be executed in enumDeclaration() before the execution of
  * LANGUAGE::EnumDeclaration()
  *
  * @param n The node that represents the enum
  */
-void JAVASCRIPT::proxyEnumDeclarationBefore(Node *n) {
-  if (generateTsTypes)
-  {
-    proxyEnum = new ProxyInterface(ProxyInterface::enumType);
-    proxyEnum->setClassName(Getattr(n, "sym:name"));
-  }
-}
+// void JAVASCRIPT::tsTypeEnumDeclarationBefore(Node *n) {
+//   if (generateTsTypes)
+//   {
+//     tsTypeEnum = new TsTypeInterface(TsTypeInterface::enumType);
+//     tsTypeEnum->setClassName(Getattr(n, "sym:name"));
+//   }
+// }
 
 /**
- * Enum Declaration Handler helper to generate Proxy Interface
+ * Enum Declaration Handler helper to generate TypeScript Type Definition
+ * Interface.
  * To be executed in enumDeclaration() after the execution of
  * LANGUAGE::EnumDeclaration()
  *
  * @param n The node that represents the enum
  */
-void JAVASCRIPT::proxyEnumDeclarationAfter() {
-  if (generateTsTypes)
-  {
-    proxyEnum->generateTsTypes();
-    delete proxyEnum;
-    proxyEnum = NULL;
-  }
-}
+// void JAVASCRIPT::tsTypeEnumDeclarationAfter() {
+//   if (generateTsTypes)
+//   {
+//     tsTypeEnum->generateTsTypes();
+//     delete tsTypeEnum;
+//     tsTypeEnum = NULL;
+//   }
+// }
 
 /**
  * Executed when a directive is inserted
  * Check if the insertion is to be done as "proxycode" and if a class is
  * being handled (classHandler executed) and if so, store the code in the
- * object representation of the proxy
+ * object representation of the TypeScriptTypeDefinition
  * If not, execute the standard Language insertDirective
  * Ignore %proxybasecode because it will be used for base template classes
  * only.
@@ -823,10 +862,9 @@ int JAVASCRIPT::insertDirective(Node *n)
 
   if (Cmp(section, "proxycode") == 0)
   {
-    if (proxyInterface)
+    if (tsTypeInterface)
     {
-      proxyInterface->insertCode(code);
-      return SWIG_OK;
+      tsTypeEnum->insertCode(code);
     }
     return SWIG_OK;
   }
@@ -912,7 +950,8 @@ Node *JAVASCRIPT::findTemplate(Node *topNode, const char *name)
  * not exist continues to next steps.
  *
  * 2 - Get a list of base classes (C++ can have multiple inheritance), from
- * where get the name of the base class as it should be used in the Proxy Interface.
+ * where get the name of the base class as it should be used in the TypeScript Type
+ * Type definition Interface.
  * Note, that if the class is annotated with "feature:ignore" or "feature:interface"
  * it tries to use next base class.
  *
@@ -946,7 +985,7 @@ String *JAVASCRIPT::getBaseClass(Node *n)
       SwigType *baseclassname = Getattr(base.item, "name");
       returnBaseClassName = baseclassname;
 
-      String *name = getProxyName(baseclassname);
+      String *name = getTsTypeName(baseclassname);
       if (name)
       {
         returnBaseClassName = name;
@@ -954,9 +993,9 @@ String *JAVASCRIPT::getBaseClass(Node *n)
 
       if (alreadyHaveBaseClass)
       {
-        String *proxyclassname = Getattr(n, "classtypeobj");
+        String *tsTypeClassName = Getattr(n, "classtypeobj");
         Swig_warning(WARN_JAVA_MULTIPLE_INHERITANCE, Getfile(n), Getline(n),
-                     "Warning for %s, base %s ignored. Multiple inheritance is not supported in TypeScript.\n", SwigType_namestr(proxyclassname), SwigType_namestr(baseclassname));
+                     "Warning for %s, base %s ignored. Multiple inheritance is not supported in TypeScript.\n", SwigType_namestr(tsTypeClassName), SwigType_namestr(baseclassname));
       }
       alreadyHaveBaseClass = true;
     }
@@ -976,12 +1015,12 @@ String *JAVASCRIPT::getBaseClass(Node *n)
  *
  * @param T A node representing the Type to which is necessary to get the proxyname
  *
- * @return A string with the Type name to be used in the TypeScript proxy Interface
- * or null if cannot find a class or enum or the node does not have "sym:name" property
+ * @return A string with the Type name to be used in the TypeScript Type Definition
+ * Interface or null if cannot find a class or enum or the node does not have "sym:name" property
  */
-String *JAVASCRIPT::getProxyName(SwigType *t)
+String *JAVASCRIPT::getTsTypeName(SwigType *t)
 {
-  String *proxyname = NULL;
+  String *tsTypeName = NULL;
 
   Node *n = classLookup(t);
   if (!n)
@@ -993,10 +1032,10 @@ String *JAVASCRIPT::getProxyName(SwigType *t)
     return NULL;
   }
 
-  proxyname = Getattr(n, "proxyname");
-  if (proxyname)
+  tsTypeName = Getattr(n, "proxyname");
+  if (tsTypeName)
   {
-    return proxyname;
+    return tsTypeName;
   }
 
   String *symname = Getattr(n, "sym:name");
@@ -1004,9 +1043,9 @@ String *JAVASCRIPT::getProxyName(SwigType *t)
   {
     return NULL;
   }
-  proxyname = Copy(symname);
-  Setattr(n, "proxyname", proxyname); // Cache it
-  return proxyname;
+  tsTypeName = Copy(symname);
+  Setattr(n, "proxyname", tsTypeName); // Cache it
+  return tsTypeName;
 }
 
 /**
@@ -1034,7 +1073,7 @@ String *JAVASCRIPT::typemapLookup(Node *n, const char *typemapName, SwigType *ty
 }
 
 /**
- * Obtain the type that should be used in the TypeScript proxy
+ * Obtain the type that should be used in the TypeScript Type Definition
  * variable declaration.
  *
  * First check if there is a direct Typemap "typescripttype" to make
@@ -1043,9 +1082,9 @@ String *JAVASCRIPT::typemapLookup(Node *n, const char *typemapName, SwigType *ty
  *
  * @param n The node representing C++ variable
  * @return A pointer to a string containing the type that should be used
- * verbatim in the TypeScript proxy
+ * verbatim in the TypeScript Type Definition
  */
-String *JAVASCRIPT::getTypescriptProxyType(Node *n)
+String *JAVASCRIPT::getTypescriptType(Node *n)
 {
   String *typeFromTypemap;
   if ((typeFromTypemap = Swig_typemap_lookup("typescripttype", n, "", 0)))
@@ -1054,7 +1093,7 @@ String *JAVASCRIPT::getTypescriptProxyType(Node *n)
   }
 
   SwigType *type = Getattr(n, "type");
-  String *typescriptType = getProxyName(type);
+  String *typescriptType = getTsTypeName(type);
   return typescriptType;
 }
 
@@ -1104,14 +1143,15 @@ String *JAVASCRIPT::getNSpace() const {
  * --------------------------------------------------------------------- */
 
 int JAVASCRIPT::top(Node *n) {
-  tsDeclarationFileList = NewHash();
+  Printf(stdout,"###### JAVASCRIPT top()\n");
+  // tsDeclarationFileList = NewHash();
   emitter->initialize(n);
 
-  Language::top(n);
+  TypeScriptTypes::top(n);
 
   emitter->dump(n);
   emitter->close();
-  emitDeclarationIndex();
+  // emitDeclarationIndex();
   return SWIG_OK;
 }
 
@@ -3097,7 +3137,7 @@ void Template::operator=(const Template & t) {
 /**
  * Clean all allocations
  */
-ProxyInterface::~ProxyInterface()
+TsTypeInterface::~TsTypeInterface()
 {
   Delete(functionList);
   Delete(baseClassName);
@@ -3106,13 +3146,13 @@ ProxyInterface::~ProxyInterface()
   Delete(classFilePath);
   Delete(variableClassCode);
   Delete(functionClassCode);
-  Delete(proxyExtraCode);
+  Delete(tsTypeExtraCode);
 }
 
 /**
  * Generate the code of the interface using the collected information
  */
-void ProxyInterface::generateTsTypes()
+void TsTypeInterface::generateTsTypes()
 {
   String *classNameKebabCase = Swig_string_kcase(className);
   classFileName = NewStringf("%s.d.ts", classNameKebabCase);
@@ -3120,17 +3160,17 @@ void ProxyInterface::generateTsTypes()
   classFilePath = NewStringf("%s%s", SWIG_output_directory(), classFileName);
   classFilePtr = NewFile(classFilePath, "w", SWIG_output_files());
 
-  String *proxyTypeName;
-  switch (proxyType)
+  String *tsTypeName;
+  switch (tsType)
   {
   case classType:
-    proxyTypeName = NewString("class");
+    tsTypeName = NewString("class");
     break;
   case interfaceType:
-    proxyTypeName = NewString("interface");
+    tsTypeName = NewString("interface");
     break;
   case enumType:
-    proxyTypeName = NewString("declare enum");
+    tsTypeName = NewString("declare enum");
     break;
   }
 
@@ -3142,7 +3182,7 @@ void ProxyInterface::generateTsTypes()
     Delete(baseClassNameKebabCase);
   }
 
-  Printf(classFilePtr, "%s %s ", proxyTypeName, className);
+  Printf(classFilePtr, "%s %s ", tsTypeName, className);
 
   if ( Len(baseClassName) > 0)
   {
@@ -3161,8 +3201,8 @@ void ProxyInterface::generateTsTypes()
     }
   }
 
-  if ( Len(proxyExtraCode) > 0 )
-  Printf(classFilePtr, "\n%s", proxyExtraCode);
+  if ( Len(tsTypeExtraCode) > 0 )
+  Printf(classFilePtr, "\n%s", tsTypeExtraCode);
   Printf(classFilePtr, "}\n");
 }
 
@@ -3172,7 +3212,7 @@ void ProxyInterface::generateTsTypes()
  * @param n The node where the public variable is declared
  * @param typescriptType The proper type TypeScript type to be added to the member declaration
  */
-void ProxyInterface::addMemberVariable(Node *n, String *typescriptType)
+void TsTypeInterface::addMemberVariable(Node *n, String *typescriptType)
 {
   Printf(variableClassCode, "   %s: %s;\n", Getattr(n, "sym:name"), typescriptType);
 }
@@ -3183,7 +3223,7 @@ void ProxyInterface::addMemberVariable(Node *n, String *typescriptType)
  * @param n The node where the public variable is declared
  * @param typescriptType The proper type TypeScript type to be added to the member declaration
  */
-void ProxyInterface::addMemberFunction(Node *n)
+void TsTypeInterface::addMemberFunction(Node *n)
 {
   String *functionName = Getattr(n, "sym:name");
   if (!Getattr(functionList, functionName))
@@ -3199,7 +3239,7 @@ void ProxyInterface::addMemberFunction(Node *n)
  * @param n The node where the enum value is defined
  * @param value The value of the enum
  */
-void ProxyInterface::addEnumValue(Node *n, String *value)
+void TsTypeInterface::addEnumValue(Node *n, String *value)
 {
   if (value)
   {
@@ -3212,12 +3252,386 @@ void ProxyInterface::addEnumValue(Node *n, String *value)
 }
 
 /**
- * Add code found as attribute of the node to the proxy interface
+ * Add code found as attribute of the node to the type definition interface
  * In some types, like std::vector and(or) std::map.
  *
  * @param code The code in TypeScript to be added in the interface
  */
-void ProxyInterface::insertCode(String *code)
+void TsTypeInterface::insertCode(String *code)
 {
-  Printf(proxyExtraCode, "%s", code);
+  Printf(tsTypeExtraCode, "%s", code);
+}
+
+
+// TypeScritTypes intermediate class methods implementation
+
+int TypeScriptTypes::top(Node *n) {
+  Printf(stdout,"######## TOP\n");
+  tsDeclarationFileList = NewHash();
+  Language::top(n);
+  emitDeclarationIndex();
+  return SWIG_OK;
+}
+
+
+/**
+ * Function handler for generating wrappers for class
+ * When top() is called to traverse the node tree, this function is called
+ * id the node is "class" type
+ *
+ * @param n The node that the navigation is passing by
+ * @return status to swig decide what to do
+ */
+int TypeScriptTypes::classHandler(Node *n)
+{
+  Printf(stdout,"######## classHandler()\n");
+  tsTypeClassHandlerBefore(n);
+  int returnValue = Language::classHandler(n);
+  tsTypeClassHandlerAfter(n);
+Printf(stdout,"######## exit classHandler()\n");
+  return returnValue;
+}
+
+/**
+ * Class Handler helper to generate TypeScript Type Definition Interface
+ * To be executed in classHandler() before the execution of
+ * LANGUAGE::classhandler()
+ *
+ * @param n The node where the class is described
+ */
+void TypeScriptTypes::tsTypeClassHandlerBefore(Node *n)
+{
+  if (generateTsTypes)
+  {
+    tsTypeInterface = new TsTypeInterface(TsTypeInterface::interfaceType);
+    tsTypeInterface->setClassName(Getattr(n, "sym:name"));
+  }
+}
+
+/**
+ * Class Handler helper to generate TypeScript Type Definition Interface
+ * To be executed in classHandler() after the execution of
+ * LANGUAGE::classhandler()
+ *
+ * @param n The node where the class is described
+ */
+void TypeScriptTypes::tsTypeClassHandlerAfter(Node *n)
+{
+  if (generateTsTypes)
+  {
+    tsTypeInterface->setBaseClassName(getBaseClass(n));
+    tsTypeInterface->generateTsTypes();
+    if (!Getattr(tsDeclarationFileList, tsTypeInterface->classFileName))
+    {
+      String *classFileName = NewString(tsTypeInterface->classFileName);
+      Setattr(tsDeclarationFileList, classFileName, n);
+    }
+    delete tsTypeInterface;
+    tsTypeInterface = NULL;
+  }
+}
+
+/**
+ * Obtain the information about the base class that a node extends
+ *
+ * 1- If a typemap with name "typescriptbase" exists for the class, then
+ * its value is returned as base class (to be declared in extends). If does
+ * not exist continues to next steps.
+ *
+ * 2 - Get a list of base classes (C++ can have multiple inheritance), from
+ * where get the name of the base class as it should be used in the TypeScript Type
+ * Type definition Interface.
+ * Note, that if the class is annotated with "feature:ignore" or "feature:interface"
+ * it tries to use next base class.
+ *
+ * @param n The node that represents the class we want the base class to
+ * @return the string representation of the base class name or null if the class
+ * does not extend other(s).
+ */
+String *TypeScriptTypes::getBaseClass(Node *n)
+{
+  String *returnBaseClassName = NULL;
+
+  String *typemapLookupCppType = Getattr(n, "name");
+  String *typescriptTypemapBaseClassName = typemapLookup(n, "typescriptbase", typemapLookupCppType);
+  if (typescriptTypemapBaseClassName && Strcmp(typescriptTypemapBaseClassName, "") != 0)
+  {
+    return typescriptTypemapBaseClassName;
+  }
+
+  List *baselist = Getattr(n, "bases");
+  if (!baselist)
+  {
+    return NULL;
+  }
+
+  Iterator base = First(baselist);
+  bool alreadyHaveBaseClass = false;
+  while (base.item)
+  {
+    if (!(GetFlag(base.item, "feature:ignore") || Getattr(base.item, "feature:interface")))
+    {
+      SwigType *baseclassname = Getattr(base.item, "name");
+      returnBaseClassName = baseclassname;
+
+      String *name = getTsTypeName(baseclassname);
+      if (name)
+      {
+        returnBaseClassName = name;
+      }
+
+      if (alreadyHaveBaseClass)
+      {
+        String *tsTypeClassName = Getattr(n, "classtypeobj");
+        Swig_warning(WARN_JAVA_MULTIPLE_INHERITANCE, Getfile(n), Getline(n),
+                     "Warning for %s, base %s ignored. Multiple inheritance is not supported in TypeScript.\n", SwigType_namestr(tsTypeClassName), SwigType_namestr(baseclassname));
+      }
+      alreadyHaveBaseClass = true;
+    }
+    base = Next(base);
+  }
+  return returnBaseClassName;
+}
+
+/**
+ * Get the name of a Type to be used as TypeScript interface/enum name
+ *
+ * 1 - Try to find a class corresponding to the node received as parameter.
+ * 2 - If the class does not exist try to find an enum
+ * 3 - If a class or an enum does not exist return NULL
+ * 4 - If the node found have already a "proxyname" attribute, return it
+ * 5 - Otherwise get the sym:name property from the class and return it
+ *
+ * @param T A node representing the Type to which is necessary to get the proxyname
+ *
+ * @return A string with the Type name to be used in the TypeScript Type Definition
+ * Interface or null if cannot find a class or enum or the node does not have "sym:name" property
+ */
+String *TypeScriptTypes::getTsTypeName(SwigType *t)
+{
+  String *tsTypeName = NULL;
+
+  Node *n = classLookup(t);
+  if (!n)
+  {
+    n = enumLookup(t);
+  }
+  if (!n)
+  {
+    return NULL;
+  }
+
+  tsTypeName = Getattr(n, "proxyname");
+  if (tsTypeName)
+  {
+    return tsTypeName;
+  }
+
+  String *symname = Getattr(n, "sym:name");
+  if (!symname)
+  {
+    return NULL;
+  }
+  tsTypeName = Copy(symname);
+  Setattr(n, "proxyname", tsTypeName); // Cache it
+  return tsTypeName;
+}
+
+/**
+ * Try to find a typemap related to a node
+ *
+ * @param n for input only and must contain info for Getfile(n) and Getline(n) to work
+ * @param typemapName typemap method name
+ * @param type typemap Type to lookup
+ *
+ * return The typemap or an empty string if the typemap does not exist
+ */
+String *TypeScriptTypes::typemapLookup(Node *n, const char *typemapName, SwigType *type)
+{
+  Node *node = NewHash();
+  Setattr(node, "type", type);
+  Setfile(node, Getfile(n));
+  Setline(node, Getline(n));
+  String *tm = Swig_typemap_lookup(typemapName, node, "", 0);
+  if (!tm)
+  {
+    tm = emptyString;
+  }
+  Delete(node);
+  return tm;
+}
+
+/**
+ * Obtain the type that should be used in the TypeScript Type Definition
+ * variable declaration.
+ *
+ * First check if there is a direct Typemap "typescripttype" to make
+ * the conversion, and if not try to get the type from the Symbol Table
+ * already converted to appropriate TypeScript type.
+ *
+ * @param n The node representing C++ variable
+ * @return A pointer to a string containing the type that should be used
+ * verbatim in the TypeScript Type Definition
+ */
+String *TypeScriptTypes::getTypescriptType(Node *n)
+{
+  String *typeFromTypemap;
+  if ((typeFromTypemap = Swig_typemap_lookup("typescripttype", n, "", 0)))
+  {
+    return typeFromTypemap;
+  }
+
+  SwigType *type = Getattr(n, "type");
+  String *typescriptType = getTsTypeName(type);
+  return typescriptType;
+}
+
+
+/**
+ * Generate the index file that exports all interfaces from the corresponding
+ * file.
+ */
+void TypeScriptTypes::emitDeclarationIndex() {
+  String *classFilePath = NewStringf("%s%s", SWIG_output_directory(), "index.d.ts");
+  File *indexFilePtr = NewFile(classFilePath, "w", SWIG_output_files());
+  List *keys = Keys(tsDeclarationFileList);
+  if (Len(keys) > 0)
+  {
+    for (Iterator it = First(keys); it.item; it = Next(it))
+    {
+      Node *function = Getattr(tsDeclarationFileList, it.item);
+      Printf(indexFilePtr, "export * from './%s'\n", it.item );
+    }
+  }
+  // Delete(classFilePath);
+}
+
+/**
+ * Class Handler helper to generate TypeScript Type Definition Interface
+ * To be executed in classHandler() before the execution of
+ * LANGUAGE::classhandler()
+ *
+ * @param n The node that represents the public class variable
+ */
+void TypeScriptTypes::tsTypeMemberVariableHandlerBefore(Node *n)
+{
+  if (generateTsTypes)
+  {
+    String *typescriptType = getTypescriptType(n);
+    tsTypeInterface->addMemberVariable(n, typescriptType);
+  }
+}
+
+/**
+ * Class member function Handler helper to generate TypeScript Type Definition
+ * Interface.
+ * To be executed in memberFunctionHandler() before the execution of
+ * LANGUAGE::memberFunctionHandler()
+ *
+ * Polymorphic functions are declared once and the proper mapping
+ * to the native is done in runtime (in C generated wrapper) by checking
+ * the number and type of the parameters.
+ *
+ * Note: as reference see memberFunctionHandler() and
+ * proxyClassFunctionHandler() in Java Module
+ *
+ * @param n The node that represents the function
+ */
+void TypeScriptTypes::tsTypeMemberFunctionHandlerBefore(Node *n)
+{
+  if (generateTsTypes)
+  {
+    tsTypeInterface->addMemberFunction(n);
+  }
+}
+
+/**
+ * Enum Declaration Handler helper to generate TypeScript Type Definition
+ * Interface.
+ * To be executed in enumDeclaration() before the execution of
+ * LANGUAGE::EnumDeclaration()
+ *
+ * @param n The node that represents the enum
+ */
+void TypeScriptTypes::tsTypeEnumDeclarationBefore(Node *n) {
+  if (generateTsTypes)
+  {
+    tsTypeEnum = new TsTypeInterface(TsTypeInterface::enumType);
+    tsTypeEnum->setClassName(Getattr(n, "sym:name"));
+  }
+}
+
+/**
+ * Enum Declaration Handler helper to generate TypeScript Type Definition
+ * Interface.
+ * To be executed in enumDeclaration() after the execution of
+ * LANGUAGE::EnumDeclaration()
+ *
+ * @param n The node that represents the enum
+ */
+void TypeScriptTypes::tsTypeEnumDeclarationAfter() {
+  if (generateTsTypes)
+  {
+    tsTypeEnum->generateTsTypes();
+    delete tsTypeEnum;
+    tsTypeEnum = NULL;
+  }
+}
+
+/**
+ * Executed by SWIG to manage a declared C++ public variable
+ *
+ * @param n The node representing the public variable
+ * @return status to swig decide what to do
+ */
+int TypeScriptTypes::membervariableHandler(Node *n)
+{
+  tsTypeMemberVariableHandlerBefore(n);
+  return Language::membervariableHandler(n);
+}
+
+/**
+ * Executed for each enum, found when navigating in the node tree
+ *
+ * @param n The node that represents the enumerated
+ * @return The SWIG status
+ */
+int TypeScriptTypes::enumDeclaration(Node *n)
+{
+  tsTypeEnumDeclarationBefore(n);
+  Language::enumDeclaration(n);
+  tsTypeEnumDeclarationAfter();
+  return SWIG_OK;
+}
+
+/**
+ * Executed when navigating in the tree, when a value declaration node
+ * is found.
+ *
+ * @param n The node of the value declaration
+ * @return The SWIG status
+ */
+int TypeScriptTypes::enumvalueDeclaration(Node *n)
+{
+  if (generateTsTypes)
+  {
+    if (tsTypeEnum)
+    {
+      tsTypeEnum->addEnumValue(n, Getattr(n, "enumvalue"));
+    }
+  }
+  return Language::enumvalueDeclaration(n);
+}
+
+/**
+ * Handler executed in tree navigation when it encounters a class
+ * member function
+ *
+ * @param n The node that represents class member function
+ * @return SWIG status
+ */
+int TypeScriptTypes::memberfunctionHandler(Node *n)
+{
+  tsTypeMemberFunctionHandlerBefore(n);
+  return Language::memberfunctionHandler(n);
 }
