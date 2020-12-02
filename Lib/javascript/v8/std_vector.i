@@ -30,7 +30,7 @@
         typedef value_type* pointer;
         typedef const value_type* const_pointer;
         typedef value_type& reference;
-        typedef const value_type& const_reference;
+        typedef const value_type& CONST_REFERENCE;
 
         vector();
         vector(size_type n);
@@ -45,7 +45,7 @@
         %rename(add) push_back;
         void push_back(const value_type& x);
         %extend {
-            const_reference get(int i) throw (std::out_of_range) {
+            CONST_REFERENCE get(int i) throw (std::out_of_range) {
                 int size = int(self->size());
                 if (i>=0 && i<size)
                     return (*self)[i];
@@ -77,5 +77,4 @@ namespace std{
 %define specialize_std_vector(T)
 #warning "specialize_std_vector - specialization for type T no longer needed"
 %enddef
-
 

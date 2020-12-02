@@ -118,8 +118,9 @@ public:
   };
 
   String *classFileName;
+  File *classFilePtr;
 
-  TsTypeInterface(TsType pTsType) : tsType(pTsType)
+  explicit TsTypeInterface(TsType type) : tsType(type)
   {
     functionList = NewHash();
     variableClassCode = NewString("");
@@ -130,8 +131,8 @@ public:
   };
   ~TsTypeInterface();
   void generateTsTypes();
-  void setClassName(String *name) { Printf(className, "%s", name); }
-  void setBaseClassName(String *name) { Printf(baseClassName, "%s", name); }
+  void setClassName(String *name) { className = Copy(name); }
+  void setBaseClassName(String *name) { baseClassName = Copy(name); }
   void addMemberVariable(Node *n, String *typescriptType);
   void addMemberFunction(Node *n);
   void addEnumValue(Node *n, String *value);
@@ -147,20 +148,9 @@ private:
   String *variableClassCode;
   String *functionClassCode;
   String *tsTypeExtraCode;
-  File *classFilePtr;
   TsType tsType;
   String *getTsTypeName(SwigType *t);
 };
-
-/**
- * Generate Typescript Declaration files for each class or enum.
- * This implementation iterate in the node AST after all wrapper
- * been generated in order to not be intrusive in JavaSCript code
- */
-// class TypeScriptTypeDeclaration {
-//   public:
-//     void emmitTypeScriptDeclarationFiles();
-// };
 
 /**
  * JSEmitter represents an abstraction of javascript code generators
@@ -361,8 +351,9 @@ class TypeScriptTypes: public Language {
 public:
   bool generateTsTypes;
   String *emptyString;
-  TsTypeInterface *tsTypeInterface;
-  TsTypeInterface *tsTypeEnum;
+  TsTypeInterface *tsTypeInterfaceDeclaration;
+  TsTypeInterface *tsTypeEnumDeclaration;
+  File *declarationFilePtr;
 
   TypeScriptTypes() : emptyString(NewString("")), generateTsTypes(false) {}
   ~TypeScriptTypes() {
@@ -391,8 +382,7 @@ private:
   String *getTypescriptType(Node *n);
   void generateBaseInterfaces(Node *topNode);
   void generateBaseInterface(Node *topNode, const char *interfaceName);
-  Node *findTemplate(Node *topNode, const char *name);
-  Node *findInsert(Node *topNode, const char *section);
+
   void emitDeclarationIndex();
 
   bool isTemplate(Node *n, const char *name)
@@ -455,57 +445,6 @@ private:
 
 };
 
-/**
- * Convert Pascal Case Swig String to Kebab Case
- *
- *      CamelCase -> camel-case
- *      get2D     -> get-2d
- *      asFloat2  -> as-float2
- *
- * @param s The Pascal case string
- * @return The name converted to Kebab Case
- */
-String *Swig_string_kcase(String *s)
-{
-  String *ns;
-  int c;
-  int lastC = 0;
-  int nextC = 0;
-  int underscore = 0;
-  ns = NewStringEmpty();
-
-  /* We insert a dash when:
-     1. Lower case char followed by upper case char
-     getFoo > get_foo; getFOo > get_foo; GETFOO > getfoo
-     2. Number preceded by char and not end of string
-     get2D > get_2d; get22D > get_22d; GET2D > get_2d
-     but:
-     asFloat2 > as_float2
-  */
-
-  Seek(s, 0, SEEK_SET);
-
-  while ((c = Getc(s)) != EOF)
-  {
-    nextC = Getc(s);
-    Ungetc(nextC, s);
-    if (isdigit(c) && isalpha(lastC) && nextC != EOF)
-      underscore = 1;
-    else if (isupper(c) && isalpha(lastC) && !isupper(lastC))
-      underscore = 1;
-
-    lastC = c;
-
-    if (underscore)
-    {
-      Putc('-', ns);
-      underscore = 0;
-    }
-
-    Putc(tolower(c), ns);
-  }
-  return ns;
-}
 
 /* ---------------------------------------------------------------------
  * functionWrapper()
@@ -632,27 +571,20 @@ int JAVASCRIPT::nativeWrapper(Node *n) {
   return SWIG_OK;
 }
 
-/**
- * Function handler for generating wrappers for class
- * When top() is called to traverse the node tree, this function is called
- * id the node is "class" type
+/* ---------------------------------------------------------------------
+ * classHandler()
  *
- * @param n The node that the navigation is passing by
- * @return status to swig decide what to do
- */
+ * Function handler for generating wrappers for class
+ * --------------------------------------------------------------------- */
 int JAVASCRIPT::classHandler(Node *n)
 {
   emitter->switchNamespace(n);
 
   emitter->enterClass(n);
+  int returnValue = TypeScriptTypes::classHandler(n);
+  emitter->exitClass(n);
 
-  // tsTypeClassHandlerBefore(n);
-  // int returnValue = Language::classHandler(n);
-  // emitter->exitClass(n);
-  // tsTypeClassHandlerAfter(n);
-
-  // return returnValue;
-  return TypeScriptTypes::classHandler(n);
+  return returnValue;
 }
 
 /**
@@ -663,7 +595,6 @@ int JAVASCRIPT::classHandler(Node *n)
  */
 int JAVASCRIPT::membervariableHandler(Node *n)
 {
-  // tsTypeMemberVariableHandlerBefore(n);
   return TypeScriptTypes::membervariableHandler(n);
 }
 
@@ -675,9 +606,7 @@ int JAVASCRIPT::membervariableHandler(Node *n)
  */
 int JAVASCRIPT::enumDeclaration(Node *n)
 {
-  // tsTypeEnumDeclarationBefore(n);
   TypeScriptTypes::enumDeclaration(n);
-  // tsTypeEnumDeclarationAfter();
   return SWIG_OK;
 }
 
@@ -690,13 +619,6 @@ int JAVASCRIPT::enumDeclaration(Node *n)
  */
 int JAVASCRIPT::enumvalueDeclaration(Node *n)
 {
-  // if (generateTsTypes)
-  // {
-  //   if (tsTypeEnum)
-  //   {
-  //     tsTypeEnum->addEnumValue(n, Getattr(n, "enumvalue"));
-  //   }
-  // }
   return TypeScriptTypes::enumvalueDeclaration(n);
 }
 
@@ -709,7 +631,6 @@ int JAVASCRIPT::enumvalueDeclaration(Node *n)
  */
 int JAVASCRIPT::memberfunctionHandler(Node *n)
 {
-  // tsTypeMemberFunctionHandlerBefore(n);
   return TypeScriptTypes::memberfunctionHandler(n);
 }
 
@@ -738,9 +659,9 @@ int JAVASCRIPT::insertDirective(Node *n)
 
   if (Cmp(section, "proxycode") == 0)
   {
-    if (tsTypeInterface)
+    if (tsTypeInterfaceDeclaration)
     {
-      tsTypeEnum->insertCode(code);
+      tsTypeEnumDeclaration->insertCode(code);
     }
     return SWIG_OK;
   }
@@ -2764,9 +2685,6 @@ void Template::operator=(const Template & t) {
   templateName = NewString(t.templateName);
 }
 
-/**
- * Clean all allocations
- */
 TsTypeInterface::~TsTypeInterface()
 {
   Delete(functionList);
@@ -2784,20 +2702,19 @@ TsTypeInterface::~TsTypeInterface()
  */
 void TsTypeInterface::generateTsTypes()
 {
-  String *classNameKebabCase = Swig_string_kcase(className);
+  String *classNameKebabCase = Swig_string_kebabcase(className);
   classFileName = NewStringf("%s.d.ts", classNameKebabCase);
   Delete(classNameKebabCase);
   classFilePath = NewStringf("%s%s", SWIG_output_directory(), classFileName);
-  classFilePtr = NewFile(classFilePath, "w", SWIG_output_files());
 
   String *tsTypeName;
   switch (tsType)
   {
   case classType:
-    tsTypeName = NewString("class");
+    tsTypeName = NewString("export class");
     break;
   case interfaceType:
-    tsTypeName = NewString("interface");
+    tsTypeName = NewString("export interface");
     break;
   case enumType:
     tsTypeName = NewString("declare enum");
@@ -2805,13 +2722,12 @@ void TsTypeInterface::generateTsTypes()
   }
 
   // Inclusion of parent interface when the class extends something
-  if (Len(baseClassName) > 0) {
-    String *baseClassNameKebabCase = Swig_string_kcase(baseClassName);
-    Printf(classFilePtr,"%s\n", "// tslint:disable-next-line:no-reference");
-    Printf(classFilePtr,"/// <reference path='./%s.d.ts' />\n\n", baseClassNameKebabCase);
-    Delete(baseClassNameKebabCase);
-  }
-
+  // if (Len(baseClassName) > 0) {
+  //   String *baseClassNameKebabCase = Swig_string_kcase(baseClassName);
+  //   Printf(classFilePtr,"%s\n", "// tslint:disable-next-line:no-reference");
+  //   Printf(classFilePtr,"/// <reference path='./%s.d.ts' />\n\n", baseClassNameKebabCase);
+  //   Delete(baseClassNameKebabCase);
+  // }
   Printf(classFilePtr, "%s %s ", tsTypeName, className);
 
   if ( Len(baseClassName) > 0)
@@ -2827,13 +2743,13 @@ void TsTypeInterface::generateTsTypes()
     for (Iterator it = First(keys); it.item; it = Next(it))
     {
       Node *function = Getattr(functionList, it.item);
-      Printf(classFilePtr, "   %s: Function;\n", Getattr(function,"sym:name") );
+      Printf(classFilePtr, "   %s?: Function;\n", Getattr(function,"sym:name") );
     }
   }
 
   if ( Len(tsTypeExtraCode) > 0 )
   Printf(classFilePtr, "\n%s", tsTypeExtraCode);
-  Printf(classFilePtr, "}\n");
+  Printf(classFilePtr, "}\n\n");
 }
 
 /**
@@ -2895,13 +2811,18 @@ void TsTypeInterface::insertCode(String *code)
 
 // TypeScritTypes intermediate class methods implementation
 
+/**
+ * Start of traversal the AST
+ */
 int TypeScriptTypes::top(Node *n) {
   tsDeclarationFileList = NewHash();
+  String *classFilePath = NewStringf("%s%s", SWIG_output_directory(), "types.d.ts");
+  declarationFilePtr = NewFile(classFilePath, "w", SWIG_output_files());
+  Delete(classFilePath);
   Language::top(n);
-  emitDeclarationIndex();
+  // emitDeclarationIndex();
   return SWIG_OK;
 }
-
 
 /**
  * Function handler for generating wrappers for class
@@ -2913,10 +2834,86 @@ int TypeScriptTypes::top(Node *n) {
  */
 int TypeScriptTypes::classHandler(Node *n)
 {
-  tsTypeClassHandlerBefore(n);
+  if (generateTsTypes)
+  {
+    tsTypeInterfaceDeclaration = new TsTypeInterface(TsTypeInterface::interfaceType);
+    tsTypeInterfaceDeclaration->setClassName(Getattr(n, "sym:name"));
+  }
   int returnValue = Language::classHandler(n);
-  tsTypeClassHandlerAfter(n);
+  if (generateTsTypes)
+  {
+    tsTypeInterfaceDeclaration->setBaseClassName(getBaseClass(n));
+    tsTypeInterfaceDeclaration->classFilePtr = declarationFilePtr;
+    tsTypeInterfaceDeclaration->generateTsTypes();
+    if (!Getattr(tsDeclarationFileList, tsTypeInterfaceDeclaration->classFileName))
+    {
+      String *classFileName = NewString(tsTypeInterfaceDeclaration->classFileName);
+      Setattr(tsDeclarationFileList, classFileName, n);
+    }
+    delete tsTypeInterfaceDeclaration;
+    tsTypeInterfaceDeclaration = NULL;
+  }
   return returnValue;
+}
+
+
+/**
+ * Executed by SWIG to manage a declared C++ public variable
+ *
+ * @param n The node representing the public variable
+ * @return status to swig decide what to do
+ */
+int TypeScriptTypes::membervariableHandler(Node *n)
+{
+  tsTypeMemberVariableHandlerBefore(n);
+  return Language::membervariableHandler(n);
+}
+
+/**
+ * Executed for each enum, found when navigating in the node tree
+ *
+ * @param n The node that represents the enumerated
+ * @return The SWIG status
+ */
+int TypeScriptTypes::enumDeclaration(Node *n)
+{
+  tsTypeEnumDeclarationBefore(n);
+  Language::enumDeclaration(n);
+  tsTypeEnumDeclaration->classFilePtr = declarationFilePtr;
+  tsTypeEnumDeclarationAfter();
+  return SWIG_OK;
+}
+
+/**
+ * Executed when navigating in the tree, when a value declaration node
+ * is found.
+ *
+ * @param n The node of the value declaration
+ * @return The SWIG status
+ */
+int TypeScriptTypes::enumvalueDeclaration(Node *n)
+{
+  if (generateTsTypes)
+  {
+    if (tsTypeEnumDeclaration)
+    {
+      tsTypeEnumDeclaration->addEnumValue(n, Getattr(n, "enumvalue"));
+    }
+  }
+  return Language::enumvalueDeclaration(n);
+}
+
+/**
+ * Handler executed in tree navigation when it encounters a class
+ * member function
+ *
+ * @param n The node that represents class member function
+ * @return SWIG status
+ */
+int TypeScriptTypes::memberfunctionHandler(Node *n)
+{
+  tsTypeMemberFunctionHandlerBefore(n);
+  return Language::memberfunctionHandler(n);
 }
 
 /**
@@ -2930,8 +2927,8 @@ void TypeScriptTypes::tsTypeClassHandlerBefore(Node *n)
 {
   if (generateTsTypes)
   {
-    tsTypeInterface = new TsTypeInterface(TsTypeInterface::interfaceType);
-    tsTypeInterface->setClassName(Getattr(n, "sym:name"));
+    tsTypeInterfaceDeclaration = new TsTypeInterface(TsTypeInterface::interfaceType);
+    tsTypeInterfaceDeclaration->setClassName(Getattr(n, "sym:name"));
   }
 }
 
@@ -2946,15 +2943,15 @@ void TypeScriptTypes::tsTypeClassHandlerAfter(Node *n)
 {
   if (generateTsTypes)
   {
-    tsTypeInterface->setBaseClassName(getBaseClass(n));
-    tsTypeInterface->generateTsTypes();
-    if (!Getattr(tsDeclarationFileList, tsTypeInterface->classFileName))
+    tsTypeInterfaceDeclaration->setBaseClassName(getBaseClass(n));
+    tsTypeInterfaceDeclaration->generateTsTypes();
+    if (!Getattr(tsDeclarationFileList, tsTypeInterfaceDeclaration->classFileName))
     {
-      String *classFileName = NewString(tsTypeInterface->classFileName);
+      String *classFileName = NewString(tsTypeInterfaceDeclaration->classFileName);
       Setattr(tsDeclarationFileList, classFileName, n);
     }
-    delete tsTypeInterface;
-    tsTypeInterface = NULL;
+    delete tsTypeInterfaceDeclaration;
+    tsTypeInterfaceDeclaration = NULL;
   }
 }
 
@@ -3127,7 +3124,10 @@ void TypeScriptTypes::emitDeclarationIndex() {
     for (Iterator it = First(keys); it.item; it = Next(it))
     {
       Node *function = Getattr(tsDeclarationFileList, it.item);
-      Printf(indexFilePtr, "export * from './%s'\n", it.item );
+      String *fileNameWithoutExtension = NewString(it.item);
+      Replaceall(fileNameWithoutExtension, ".ts", "");
+      Printf(indexFilePtr, "export * from './%s'\n", fileNameWithoutExtension );
+      Delete(fileNameWithoutExtension);
     }
   }
   // Delete(classFilePath);
@@ -3145,7 +3145,7 @@ void TypeScriptTypes::tsTypeMemberVariableHandlerBefore(Node *n)
   if (generateTsTypes)
   {
     String *typescriptType = getTypescriptType(n);
-    tsTypeInterface->addMemberVariable(n, typescriptType);
+    tsTypeInterfaceDeclaration->addMemberVariable(n, typescriptType);
   }
 }
 
@@ -3168,7 +3168,7 @@ void TypeScriptTypes::tsTypeMemberFunctionHandlerBefore(Node *n)
 {
   if (generateTsTypes)
   {
-    tsTypeInterface->addMemberFunction(n);
+    tsTypeInterfaceDeclaration->addMemberFunction(n);
   }
 }
 
@@ -3183,8 +3183,8 @@ void TypeScriptTypes::tsTypeMemberFunctionHandlerBefore(Node *n)
 void TypeScriptTypes::tsTypeEnumDeclarationBefore(Node *n) {
   if (generateTsTypes)
   {
-    tsTypeEnum = new TsTypeInterface(TsTypeInterface::enumType);
-    tsTypeEnum->setClassName(Getattr(n, "sym:name"));
+    tsTypeEnumDeclaration = new TsTypeInterface(TsTypeInterface::enumType);
+    tsTypeEnumDeclaration->setClassName(Getattr(n, "sym:name"));
   }
 }
 
@@ -3199,137 +3199,8 @@ void TypeScriptTypes::tsTypeEnumDeclarationBefore(Node *n) {
 void TypeScriptTypes::tsTypeEnumDeclarationAfter() {
   if (generateTsTypes)
   {
-    tsTypeEnum->generateTsTypes();
-    delete tsTypeEnum;
-    tsTypeEnum = NULL;
+    tsTypeEnumDeclaration->generateTsTypes();
+    delete tsTypeEnumDeclaration;
+    tsTypeEnumDeclaration = NULL;
   }
-}
-
-/**
- * Executed by SWIG to manage a declared C++ public variable
- *
- * @param n The node representing the public variable
- * @return status to swig decide what to do
- */
-int TypeScriptTypes::membervariableHandler(Node *n)
-{
-  tsTypeMemberVariableHandlerBefore(n);
-  return Language::membervariableHandler(n);
-}
-
-/**
- * Executed for each enum, found when navigating in the node tree
- *
- * @param n The node that represents the enumerated
- * @return The SWIG status
- */
-int TypeScriptTypes::enumDeclaration(Node *n)
-{
-  tsTypeEnumDeclarationBefore(n);
-  Language::enumDeclaration(n);
-  tsTypeEnumDeclarationAfter();
-  return SWIG_OK;
-}
-
-/**
- * Executed when navigating in the tree, when a value declaration node
- * is found.
- *
- * @param n The node of the value declaration
- * @return The SWIG status
- */
-int TypeScriptTypes::enumvalueDeclaration(Node *n)
-{
-  if (generateTsTypes)
-  {
-    if (tsTypeEnum)
-    {
-      tsTypeEnum->addEnumValue(n, Getattr(n, "enumvalue"));
-    }
-  }
-  return Language::enumvalueDeclaration(n);
-}
-
-/**
- * Handler executed in tree navigation when it encounters a class
- * member function
- *
- * @param n The node that represents class member function
- * @return SWIG status
- */
-int TypeScriptTypes::memberfunctionHandler(Node *n)
-{
-  tsTypeMemberFunctionHandlerBefore(n);
-  return Language::memberfunctionHandler(n);
-}
-
-
-/**
- * Find %insert node that belongs to a node.
- * Should be used after finding the node where the insert code should be searched
- *
- * @param topNode Node where the cod should exist on
- * @param section The section where yhe code should be inserted
- */
-Node *TypeScriptTypes::findInsert(Node *topNode, const char *section)
-{
-  if (!topNode)
-  {
-    return NULL;
-  }
-
-  if (isInsert(topNode, section))
-  {
-    Swig_print_node(topNode);
-    return topNode;
-  }
-
-  Node *currentNode = firstChild(topNode);
-  Node *returnNode = 0;
-  while (currentNode)
-  {
-    returnNode = findInsert(currentNode, section);
-    if (returnNode)
-    {
-      return returnNode;
-    }
-    currentNode = nextSibling(currentNode);
-  }
-  return NULL;
-}
-
-
-/**
- * Try to find a C++ template by name in the node tree.
- * Navigate in the tree until it founds a template with the wanted name
- *
- * @param topNode AST top node
- * @param name The name of the template to be found
- * @return The node that represents the template
- */
-Node *TypeScriptTypes::findTemplate(Node *topNode, const char *name)
-{
-  if (!topNode)
-  {
-    return NULL;
-  }
-
-  if (isTemplate(topNode, name))
-  {
-    Swig_print_node(topNode);
-    return topNode;
-  }
-
-  Node *currentNode = firstChild(topNode);
-  Node *returnNode = 0;
-  while (currentNode)
-  {
-    returnNode = findTemplate(currentNode, name);
-    if (returnNode)
-    {
-      return returnNode;
-    }
-    currentNode = nextSibling(currentNode);
-  }
-  return NULL;
 }

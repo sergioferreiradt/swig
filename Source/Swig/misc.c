@@ -550,6 +550,58 @@ String *Swig_string_ucase(String *s) {
   return ns;
 }
 
+/**
+ * Convert Pascal Case Swig String to Kebab Case
+ *
+ *      CamelCase -> camel-case
+ *      get2D     -> get-2d
+ *      asFloat2  -> as-float2
+ *
+ * @param s The Pascal case string
+ * @return The name converted to Kebab Case
+ */
+String *Swig_string_kebabcase(String *s)
+{
+  String *ns;
+  int c;
+  int lastC = 0;
+  int nextC = 0;
+  int underscore = 0;
+  ns = NewStringEmpty();
+
+  /* We insert a dash when:
+     1. Lower case char followed by upper case char
+     getFoo > get_foo; getFOo > get_foo; GETFOO > getfoo
+     2. Number preceded by char and not end of string
+     get2D > get_2d; get22D > get_22d; GET2D > get_2d
+     but:
+     asFloat2 > as_float2
+  */
+
+  Seek(s, 0, SEEK_SET);
+
+  while ((c = Getc(s)) != EOF)
+  {
+    nextC = Getc(s);
+    Ungetc(nextC, s);
+    if (isdigit(c) && isalpha(lastC) && nextC != EOF)
+      underscore = 1;
+    else if (isupper(c) && isalpha(lastC) && !isupper(lastC))
+      underscore = 1;
+
+    lastC = c;
+
+    if (underscore)
+    {
+      Putc('-', ns);
+      underscore = 0;
+    }
+
+    Putc(tolower(c), ns);
+  }
+  return ns;
+}
+
 /* -----------------------------------------------------------------------------
  * Swig_string_first_upper()
  *
