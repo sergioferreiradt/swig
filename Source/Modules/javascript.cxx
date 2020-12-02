@@ -369,9 +369,6 @@ public:
 private:
   Hash *tsDeclarationFileList;
 
-  void tsTypeMemberFunctionHandlerBefore(Node *n);
-  void tsTypeEnumDeclarationAfter();
-
   String *getBaseClass(Node *n);
   String *getTsTypeName(SwigType *t);
   String *typemapLookup(Node *n, const char *typemapName, SwigType *type);
@@ -2883,7 +2880,12 @@ int TypeScriptTypes::enumDeclaration(Node *n)
   }
   Language::enumDeclaration(n);
   tsTypeEnumDeclaration->classFilePtr = declarationFilePtr;
-  tsTypeEnumDeclarationAfter();
+  if (generateTsTypes)
+  {
+    tsTypeEnumDeclaration->generateTsTypes();
+    delete tsTypeEnumDeclaration;
+    tsTypeEnumDeclaration = NULL;
+  }
   return SWIG_OK;
 }
 
@@ -2915,7 +2917,10 @@ int TypeScriptTypes::enumvalueDeclaration(Node *n)
  */
 int TypeScriptTypes::memberfunctionHandler(Node *n)
 {
-  tsTypeMemberFunctionHandlerBefore(n);
+  if (generateTsTypes)
+  {
+    tsTypeInterfaceDeclaration->addMemberFunction(n);
+  }
   return Language::memberfunctionHandler(n);
 }
 
@@ -3074,60 +3079,3 @@ String *TypeScriptTypes::getTypescriptType(Node *n)
   return typescriptType;
 }
 
-/**
- * Class member function Handler helper to generate TypeScript Type Definition
- * Interface.
- * To be executed in memberFunctionHandler() before the execution of
- * LANGUAGE::memberFunctionHandler()
- *
- * Polymorphic functions are declared once and the proper mapping
- * to the native is done in runtime (in C generated wrapper) by checking
- * the number and type of the parameters.
- *
- * Note: as reference see memberFunctionHandler() and
- * proxyClassFunctionHandler() in Java Module
- *
- * @param n The node that represents the function
- */
-void TypeScriptTypes::tsTypeMemberFunctionHandlerBefore(Node *n)
-{
-  if (generateTsTypes)
-  {
-    tsTypeInterfaceDeclaration->addMemberFunction(n);
-  }
-}
-
-/**
- * Enum Declaration Handler helper to generate TypeScript Type Definition
- * Interface.
- * To be executed in enumDeclaration() before the execution of
- * LANGUAGE::EnumDeclaration()
- *
- * @param n The node that represents the enum
- */
-/*
-void TypeScriptTypes::tsTypeEnumDeclarationBefore(Node *n) {
-  if (generateTsTypes)
-  {
-    tsTypeEnumDeclaration = new TsTypeInterface(TsTypeInterface::enumType);
-    tsTypeEnumDeclaration->setClassName(Getattr(n, "sym:name"));
-  }
-}
-*/
-
-/**
- * Enum Declaration Handler helper to generate TypeScript Type Definition
- * Interface.
- * To be executed in enumDeclaration() after the execution of
- * LANGUAGE::EnumDeclaration()
- *
- * @param n The node that represents the enum
- */
-void TypeScriptTypes::tsTypeEnumDeclarationAfter() {
-  if (generateTsTypes)
-  {
-    tsTypeEnumDeclaration->generateTsTypes();
-    delete tsTypeEnumDeclaration;
-    tsTypeEnumDeclaration = NULL;
-  }
-}
