@@ -117,7 +117,7 @@ public:
     enumType
   };
 
-  String *classFileName;
+
   File *classFilePtr;
 
   explicit TsTypeInterface(TsType type) : tsType(type)
@@ -139,7 +139,7 @@ public:
   void insertCode(String *code);
 
 private:
-  String *classFilePath;
+  String *typesFilePath;
 
   Hash *functionList;
 
@@ -2682,8 +2682,7 @@ TsTypeInterface::~TsTypeInterface()
   Delete(functionList);
   Delete(baseClassName);
   Delete(className);
-  Delete(classFileName);
-  Delete(classFilePath);
+  Delete(typesFilePath);
   Delete(variableClassCode);
   Delete(functionClassCode);
   Delete(tsTypeExtraCode);
@@ -2694,10 +2693,6 @@ TsTypeInterface::~TsTypeInterface()
  */
 void TsTypeInterface::generateTsTypes()
 {
-  String *classNameKebabCase = Swig_string_kebabcase(className);
-  classFileName = NewStringf("%s.d.ts", classNameKebabCase);
-  Delete(classNameKebabCase);
-  classFilePath = NewStringf("%s%s", SWIG_output_directory(), classFileName);
 
   String *tsTypeName;
   switch (tsType)
@@ -2713,13 +2708,6 @@ void TsTypeInterface::generateTsTypes()
     break;
   }
 
-  // Inclusion of parent interface when the class extends something
-  // if (Len(baseClassName) > 0) {
-  //   String *baseClassNameKebabCase = Swig_string_kcase(baseClassName);
-  //   Printf(classFilePtr,"%s\n", "// tslint:disable-next-line:no-reference");
-  //   Printf(classFilePtr,"/// <reference path='./%s.d.ts' />\n\n", baseClassNameKebabCase);
-  //   Delete(baseClassNameKebabCase);
-  // }
   Printf(classFilePtr, "%s %s ", tsTypeName, className);
 
   if ( Len(baseClassName) > 0)
@@ -2808,9 +2796,9 @@ void TsTypeInterface::insertCode(String *code)
  */
 int TypeScriptTypes::top(Node *n) {
   tsDeclarationFileList = NewHash();
-  String *classFilePath = NewStringf("%s%s", SWIG_output_directory(), "types.d.ts");
-  declarationFilePtr = NewFile(classFilePath, "w", SWIG_output_files());
-  Delete(classFilePath);
+  String *typesFilePath = NewStringf("%s%s", SWIG_output_directory(), "types.d.ts");
+  declarationFilePtr = NewFile(typesFilePath, "w", SWIG_output_files());
+  Delete(typesFilePath);
   Language::top(n);
   return SWIG_OK;
 }
@@ -2836,11 +2824,6 @@ int TypeScriptTypes::classHandler(Node *n)
     tsTypeInterfaceDeclaration->setBaseClassName(getBaseClass(n));
     tsTypeInterfaceDeclaration->classFilePtr = declarationFilePtr;
     tsTypeInterfaceDeclaration->generateTsTypes();
-    if (!Getattr(tsDeclarationFileList, tsTypeInterfaceDeclaration->classFileName))
-    {
-      String *classFileName = NewString(tsTypeInterfaceDeclaration->classFileName);
-      Setattr(tsDeclarationFileList, classFileName, n);
-    }
     delete tsTypeInterfaceDeclaration;
     tsTypeInterfaceDeclaration = NULL;
   }
