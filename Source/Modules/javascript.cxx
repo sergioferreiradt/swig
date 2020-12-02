@@ -350,12 +350,11 @@ class TypeScriptTypes: public Language {
 
 public:
   bool generateTsTypes;
-  String *emptyString;
   TsTypeInterface *tsTypeInterfaceDeclaration;
   TsTypeInterface *tsTypeEnumDeclaration;
   File *declarationFilePtr;
 
-  TypeScriptTypes() : emptyString(NewString("")), generateTsTypes(false) {}
+  TypeScriptTypes() : generateTsTypes(false) {}
   ~TypeScriptTypes() {
     Delete(tsDeclarationFileList);
   }
@@ -3048,7 +3047,7 @@ String *TypeScriptTypes::typemapLookup(Node *n, const char *typemapName, SwigTyp
   String *tm = Swig_typemap_lookup(typemapName, node, "", 0);
   if (!tm)
   {
-    tm = emptyString;
+    tm = NewStringEmpty();
   }
   Delete(node);
   return tm;
