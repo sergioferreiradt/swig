@@ -369,11 +369,7 @@ public:
 private:
   Hash *tsDeclarationFileList;
 
-  void tsTypeClassHandlerBefore(Node *n);
-  void tsTypeClassHandlerAfter(Node *n);
-  void tsTypeMemberVariableHandlerBefore(Node *n);
   void tsTypeMemberFunctionHandlerBefore(Node *n);
-  void tsTypeEnumDeclarationBefore(Node *n);
   void tsTypeEnumDeclarationAfter();
 
   String *getBaseClass(Node *n);
@@ -2864,7 +2860,11 @@ int TypeScriptTypes::classHandler(Node *n)
  */
 int TypeScriptTypes::membervariableHandler(Node *n)
 {
-  tsTypeMemberVariableHandlerBefore(n);
+  if (generateTsTypes)
+  {
+    String *typescriptType = getTypescriptType(n);
+    tsTypeInterfaceDeclaration->addMemberVariable(n, typescriptType);
+  }
   return Language::membervariableHandler(n);
 }
 
@@ -2876,7 +2876,11 @@ int TypeScriptTypes::membervariableHandler(Node *n)
  */
 int TypeScriptTypes::enumDeclaration(Node *n)
 {
-  tsTypeEnumDeclarationBefore(n);
+  if (generateTsTypes)
+  {
+    tsTypeEnumDeclaration = new TsTypeInterface(TsTypeInterface::enumType);
+    tsTypeEnumDeclaration->setClassName(Getattr(n, "sym:name"));
+  }
   Language::enumDeclaration(n);
   tsTypeEnumDeclaration->classFilePtr = declarationFilePtr;
   tsTypeEnumDeclarationAfter();
@@ -2913,45 +2917,6 @@ int TypeScriptTypes::memberfunctionHandler(Node *n)
 {
   tsTypeMemberFunctionHandlerBefore(n);
   return Language::memberfunctionHandler(n);
-}
-
-/**
- * Class Handler helper to generate TypeScript Type Definition Interface
- * To be executed in classHandler() before the execution of
- * LANGUAGE::classhandler()
- *
- * @param n The node where the class is described
- */
-void TypeScriptTypes::tsTypeClassHandlerBefore(Node *n)
-{
-  if (generateTsTypes)
-  {
-    tsTypeInterfaceDeclaration = new TsTypeInterface(TsTypeInterface::interfaceType);
-    tsTypeInterfaceDeclaration->setClassName(Getattr(n, "sym:name"));
-  }
-}
-
-/**
- * Class Handler helper to generate TypeScript Type Definition Interface
- * To be executed in classHandler() after the execution of
- * LANGUAGE::classhandler()
- *
- * @param n The node where the class is described
- */
-void TypeScriptTypes::tsTypeClassHandlerAfter(Node *n)
-{
-  if (generateTsTypes)
-  {
-    tsTypeInterfaceDeclaration->setBaseClassName(getBaseClass(n));
-    tsTypeInterfaceDeclaration->generateTsTypes();
-    if (!Getattr(tsDeclarationFileList, tsTypeInterfaceDeclaration->classFileName))
-    {
-      String *classFileName = NewString(tsTypeInterfaceDeclaration->classFileName);
-      Setattr(tsDeclarationFileList, classFileName, n);
-    }
-    delete tsTypeInterfaceDeclaration;
-    tsTypeInterfaceDeclaration = NULL;
-  }
 }
 
 /**
@@ -3110,22 +3075,6 @@ String *TypeScriptTypes::getTypescriptType(Node *n)
 }
 
 /**
- * Class Handler helper to generate TypeScript Type Definition Interface
- * To be executed in classHandler() before the execution of
- * LANGUAGE::classhandler()
- *
- * @param n The node that represents the public class variable
- */
-void TypeScriptTypes::tsTypeMemberVariableHandlerBefore(Node *n)
-{
-  if (generateTsTypes)
-  {
-    String *typescriptType = getTypescriptType(n);
-    tsTypeInterfaceDeclaration->addMemberVariable(n, typescriptType);
-  }
-}
-
-/**
  * Class member function Handler helper to generate TypeScript Type Definition
  * Interface.
  * To be executed in memberFunctionHandler() before the execution of
@@ -3156,6 +3105,7 @@ void TypeScriptTypes::tsTypeMemberFunctionHandlerBefore(Node *n)
  *
  * @param n The node that represents the enum
  */
+/*
 void TypeScriptTypes::tsTypeEnumDeclarationBefore(Node *n) {
   if (generateTsTypes)
   {
@@ -3163,6 +3113,7 @@ void TypeScriptTypes::tsTypeEnumDeclarationBefore(Node *n) {
     tsTypeEnumDeclaration->setClassName(Getattr(n, "sym:name"));
   }
 }
+*/
 
 /**
  * Enum Declaration Handler helper to generate TypeScript Type Definition
