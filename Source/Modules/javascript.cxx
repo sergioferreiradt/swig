@@ -118,7 +118,7 @@ public:
   };
 
 
-  File *classFilePtr;
+  File *typesFilePtr;
 
   explicit TsTypeInterface(TsType type) : tsType(type)
   {
@@ -2708,14 +2708,14 @@ void TsTypeInterface::generateTsTypes()
     break;
   }
 
-  Printf(classFilePtr, "%s %s ", tsTypeName, className);
+  Printf(typesFilePtr, "%s %s ", tsTypeName, className);
 
   if ( Len(baseClassName) > 0)
   {
-    Printf(classFilePtr, "extends %s ", baseClassName);
+    Printf(typesFilePtr, "extends %s ", baseClassName);
   }
-  Printf(classFilePtr, "{\n");
-  Printf(classFilePtr, "%s", variableClassCode);
+  Printf(typesFilePtr, "{\n");
+  Printf(typesFilePtr, "%s", variableClassCode);
 
   List *keys = Keys(functionList);
   if (Len(keys) > 0)
@@ -2723,13 +2723,13 @@ void TsTypeInterface::generateTsTypes()
     for (Iterator it = First(keys); it.item; it = Next(it))
     {
       Node *function = Getattr(functionList, it.item);
-      Printf(classFilePtr, "   %s?: Function;\n", Getattr(function,"sym:name") );
+      Printf(typesFilePtr, "   %s?: Function;\n", Getattr(function,"sym:name") );
     }
   }
 
   if ( Len(tsTypeExtraCode) > 0 )
-  Printf(classFilePtr, "\n%s", tsTypeExtraCode);
-  Printf(classFilePtr, "}\n\n");
+  Printf(typesFilePtr, "\n%s", tsTypeExtraCode);
+  Printf(typesFilePtr, "}\n\n");
 }
 
 /**
@@ -2822,7 +2822,7 @@ int TypeScriptTypes::classHandler(Node *n)
   if (generateTsTypes)
   {
     tsTypeInterfaceDeclaration->setBaseClassName(getBaseClass(n));
-    tsTypeInterfaceDeclaration->classFilePtr = declarationFilePtr;
+    tsTypeInterfaceDeclaration->typesFilePtr = declarationFilePtr;
     tsTypeInterfaceDeclaration->generateTsTypes();
     delete tsTypeInterfaceDeclaration;
     tsTypeInterfaceDeclaration = NULL;
@@ -2861,7 +2861,7 @@ int TypeScriptTypes::enumDeclaration(Node *n)
     tsTypeEnumDeclaration->setClassName(Getattr(n, "sym:name"));
   }
   Language::enumDeclaration(n);
-  tsTypeEnumDeclaration->classFilePtr = declarationFilePtr;
+  tsTypeEnumDeclaration->typesFilePtr = declarationFilePtr;
   if (generateTsTypes)
   {
     tsTypeEnumDeclaration->generateTsTypes();
