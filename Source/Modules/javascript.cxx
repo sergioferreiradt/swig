@@ -2820,7 +2820,6 @@ int TypeScriptTypes::top(Node *n) {
   declarationFilePtr = NewFile(classFilePath, "w", SWIG_output_files());
   Delete(classFilePath);
   Language::top(n);
-  // emitDeclarationIndex();
   return SWIG_OK;
 }
 
@@ -3108,29 +3107,6 @@ String *TypeScriptTypes::getTypescriptType(Node *n)
   SwigType *type = Getattr(n, "type");
   String *typescriptType = getTsTypeName(type);
   return typescriptType;
-}
-
-
-/**
- * Generate the index file that exports all interfaces from the corresponding
- * file.
- */
-void TypeScriptTypes::emitDeclarationIndex() {
-  String *classFilePath = NewStringf("%s%s", SWIG_output_directory(), "index.d.ts");
-  File *indexFilePtr = NewFile(classFilePath, "w", SWIG_output_files());
-  List *keys = Keys(tsDeclarationFileList);
-  if (Len(keys) > 0)
-  {
-    for (Iterator it = First(keys); it.item; it = Next(it))
-    {
-      Node *function = Getattr(tsDeclarationFileList, it.item);
-      String *fileNameWithoutExtension = NewString(it.item);
-      Replaceall(fileNameWithoutExtension, ".ts", "");
-      Printf(indexFilePtr, "export * from './%s'\n", fileNameWithoutExtension );
-      Delete(fileNameWithoutExtension);
-    }
-  }
-  // Delete(classFilePath);
 }
 
 /**
