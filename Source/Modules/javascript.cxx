@@ -129,7 +129,16 @@ public:
     className = NewString("");
     baseClassName = NewString("");
   };
-  ~TsTypeInterface();
+  ~TsTypeInterface()
+  {
+    Delete(functionList);
+    Delete(baseClassName);
+    Delete(className);
+    Delete(typesFilePath);
+    Delete(variableClassCode);
+    Delete(functionClassCode);
+    Delete(tsTypeExtraCode);
+  }
   void generateTsTypes();
   void setClassName(String *name) { className = Copy(name); }
   void setBaseClassName(String *name) { baseClassName = Copy(name); }
@@ -2675,17 +2684,6 @@ void Template::operator=(const Template & t) {
   Delete(templateName);
   code = NewString(t.code);
   templateName = NewString(t.templateName);
-}
-
-TsTypeInterface::~TsTypeInterface()
-{
-  Delete(functionList);
-  Delete(baseClassName);
-  Delete(className);
-  Delete(typesFilePath);
-  Delete(variableClassCode);
-  Delete(functionClassCode);
-  Delete(tsTypeExtraCode);
 }
 
 /**
