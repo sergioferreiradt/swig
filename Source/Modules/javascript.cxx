@@ -151,7 +151,6 @@ private:
   String *typesFilePath;
 
   Hash *functionList;
-
   String *className;
   String *baseClassName;
   String *variableClassCode;
@@ -364,9 +363,6 @@ public:
   File *declarationFilePtr;
 
   TypeScriptTypes() : generateTsTypes(false) {}
-  ~TypeScriptTypes() {
-    Delete(tsDeclarationFileList);
-  }
   virtual int classHandler(Node *n);
   virtual int membervariableHandler(Node *n);
   virtual int memberfunctionHandler(Node *n);
@@ -375,8 +371,6 @@ public:
   virtual int top(Node *n);
 
 private:
-  Hash *tsDeclarationFileList;
-
   String *getBaseClass(Node *n);
   String *getTsTypeName(SwigType *t);
   String *typemapLookup(Node *n, const char *typemapName, SwigType *type);
@@ -2793,7 +2787,6 @@ void TsTypeInterface::insertCode(String *code)
  * Start of traversal the AST
  */
 int TypeScriptTypes::top(Node *n) {
-  tsDeclarationFileList = NewHash();
   String *typesFilePath = NewStringf("%s%s", SWIG_output_directory(), "types.d.ts");
   declarationFilePtr = NewFile(typesFilePath, "w", SWIG_output_files());
   Delete(typesFilePath);
