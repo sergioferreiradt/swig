@@ -30,7 +30,6 @@
         typedef value_type* pointer;
         typedef const value_type* const_pointer;
         typedef value_type& reference;
-        typedef const value_type& CONST_REFERENCE;
 
         vector();
         vector(size_type n);
@@ -62,7 +61,7 @@
         }
 %enddef
 
-namespace std{
+namespace std {
 
     template<class T> class vector {
         SWIG_STD_VECTOR_MINIMUM_INTERNAL(T, const value_type&)

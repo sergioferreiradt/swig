@@ -2692,11 +2692,11 @@ void TsTypeInterface::generateTsTypes()
   case classType:
     tsTypeName = NewString("export class");
     break;
-  case interfaceType:
-    tsTypeName = NewString("export interface");
-    break;
   case enumType:
     tsTypeName = NewString("declare enum");
+    break;
+  default:
+    tsTypeName = NewString("export interface");
     break;
   }
 
@@ -2781,7 +2781,7 @@ void TsTypeInterface::insertCode(String *code)
 }
 
 
-// TypeScritTypes intermediate class methods implementation
+// TypeScriptTypes intermediate class methods implementation
 
 /**
  * Start of traversal the AST
@@ -2852,9 +2852,9 @@ int TypeScriptTypes::enumDeclaration(Node *n)
     tsTypeEnumDeclaration->setClassName(Getattr(n, "sym:name"));
   }
   Language::enumDeclaration(n);
-  tsTypeEnumDeclaration->typesFilePtr = declarationFilePtr;
   if (generateTsTypes)
   {
+    tsTypeEnumDeclaration->typesFilePtr = declarationFilePtr;
     tsTypeEnumDeclaration->generateTsTypes();
     delete tsTypeEnumDeclaration;
     tsTypeEnumDeclaration = NULL;
