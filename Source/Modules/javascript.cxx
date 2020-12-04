@@ -368,6 +368,7 @@ public:
   virtual int memberfunctionHandler(Node *n);
   virtual int enumDeclaration(Node *n);
   virtual int enumvalueDeclaration(Node *n);
+  virtual int insertDirective(Node *n);
   virtual int top(Node *n);
 
 private:
@@ -418,7 +419,6 @@ public:
   virtual int classHandler(Node *n);
   virtual int enumDeclaration(Node *n);
   virtual int enumvalueDeclaration(Node *n);
-  virtual int insertDirective(Node *n);
   virtual int functionWrapper(Node *n);
   virtual int constantWrapper(Node *n);
   virtual int nativeWrapper(Node *n);
@@ -626,42 +626,6 @@ int JAVASCRIPT::memberfunctionHandler(Node *n)
 {
   return TypeScriptTypes::memberfunctionHandler(n);
 }
-
-
-/**
- * Executed when a directive is inserted
- * Check if the insertion is to be done as "tstypecode" and if a class is
- * being handled (classHandler executed) and if so, store the code in the
- * object representation of the TypeScriptTypeDefinition
- * If not, execute the standard Language insertDirective
- * Ignore %tstypebasecode because it will be used for base template classes
- * only.
- *
- * @param n The node representing the code
- * @return SWIG result status
- */
-int JAVASCRIPT::insertDirective(Node *n)
-{
-  String *code = Getattr(n, "code");
-  String *section = Getattr(n, "section");
-
-  if (Cmp(section, "tstypebasecode") == 0)
-  {
-    return SWIG_OK;
-  }
-
-  if (Cmp(section, "tstypecode") == 0)
-  {
-    if (tsTypeInterfaceDeclaration)
-    {
-      tsTypeEnumDeclaration->insertCode(code);
-    }
-    return SWIG_OK;
-  }
-
-  return Language::insertDirective(n);
-}
-
 
 int JAVASCRIPT::fragmentDirective(Node *n) {
 
@@ -2822,7 +2786,6 @@ int TypeScriptTypes::classHandler(Node *n)
   return returnValue;
 }
 
-
 /**
  * Executed by SWIG to manage a declared C++ public variable
  *
@@ -2896,6 +2859,40 @@ int TypeScriptTypes::memberfunctionHandler(Node *n)
     tsTypeInterfaceDeclaration->addMemberFunction(n);
   }
   return Language::memberfunctionHandler(n);
+}
+
+/**
+ * Executed when a directive is inserted
+ * Check if the insertion is to be done as "tstypecode" and if a class is
+ * being handled (classHandler executed) and if so, store the code in the
+ * object representation of the TypeScriptTypeDefinition
+ * If not, execute the standard Language insertDirective
+ * Ignore %tstypebasecode because it will be used for base template classes
+ * only.
+ *
+ * @param n The node representing the code
+ * @return SWIG result status
+ */
+int TypeScriptTypes::insertDirective(Node *n)
+{
+  String *code = Getattr(n, "code");
+  String *section = Getattr(n, "section");
+
+  if (Cmp(section, "tstypebasecode") == 0)
+  {
+    return SWIG_OK;
+  }
+
+  if (Cmp(section, "tstypecode") == 0)
+  {
+    if (tsTypeInterfaceDeclaration)
+    {
+      tsTypeEnumDeclaration->insertCode(code);
+    }
+    return SWIG_OK;
+  }
+
+  return Language::insertDirective(n);
 }
 
 /**
