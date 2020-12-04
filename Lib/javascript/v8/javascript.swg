@@ -36,7 +36,6 @@
 %typemap(typescripttype) unsigned long long, const unsigned long long & "number"
 %typemap(typescripttype) float,              const float &              "number"
 %typemap(typescripttype) double,             const double &             "number"
-//%typemap(typescripttype) void                                           "number"
 
 // Create a macro to insert into a code section
 #define %proxycode                          %insert("proxycode")
