@@ -2787,9 +2787,11 @@ void TsTypeInterface::insertCode(String *code)
  * Start of traversal the AST
  */
 int TypeScriptTypes::top(Node *n) {
-  String *typesFilePath = NewStringf("%s%s", SWIG_output_directory(), "types.d.ts");
-  declarationFilePtr = NewFile(typesFilePath, "w", SWIG_output_files());
-  Delete(typesFilePath);
+  if (generateTsTypes) {
+     String *typesFilePath = NewStringf("%s%s", SWIG_output_directory(), "types.d.ts");
+     declarationFilePtr = NewFile(typesFilePath, "w", SWIG_output_files());
+     Delete(typesFilePath);
+  }
   Language::top(n);
   return SWIG_OK;
 }

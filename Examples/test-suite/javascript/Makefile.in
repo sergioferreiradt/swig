@@ -53,6 +53,9 @@ ifeq (node,$(JSENGINE))
   constant_pointers.cpptest: GYP_CFLAGS = \"-Wno-ignored-qualifiers\"
   enum_thorough.cpptest: GYP_CFLAGS = \"-Wno-ignored-qualifiers\"
 
+  # Custom tests - tests with additional command line options and specific
+  typescript_interface.cpptest: SWIGOPT += -tstypes
+
 	setup_node = \
 		test -d $* || mkdir $* && \
 		sed -e 's|$$testcase|$*|g; s|$$cflags|$(GYP_CFLAGS)|g; s|$$srcdir|$(srcdir)|g' \
@@ -76,10 +79,12 @@ ifeq (node,$(JSENGINE))
 		MAKEFLAGS= $(COMPILETOOL) $(NODEGYP) --loglevel=silent --directory $* configure build 1>>/dev/null
 
 	run_testcase = \
+		if [ -f $(srcdir)/$*_runme.ts ]; then \
+			tsc $(srcdir)/$*_runme.ts; \
+		fi && \
 		if [ -f $(srcdir)/$*$(SCRIPTSUFFIX) ]; then \
 			env NODE_PATH=$$PWD:$(srcdir) $(RUNTOOL) $(NODEJS) $(srcdir)/$*$(SCRIPTSUFFIX); \
 		fi
-
 
   %.ctest:
 		$(_setup)
