@@ -10,9 +10,9 @@
 %}
 
 
-%define SWIG_STD_VECTOR_MINIMUM_INTERNAL(CTYPE, CONST_REFERENCE)
+%define SWIG_STD_VECTOR_INTERNAL(CTYPE, CONST_REFERENCE)
 %typemap(typescriptbase)   std::vector< CTYPE > ""
-%proxybasecode %{  size: Function;
+%tstypebasecode %{  size: Function;
   capacity: Function;
   reserve: Function;
   isEmpty: Function;
@@ -64,12 +64,12 @@
 namespace std {
 
     template<class T> class vector {
-        SWIG_STD_VECTOR_MINIMUM_INTERNAL(T, const value_type&)
+        SWIG_STD_VECTOR_INTERNAL(T, const value_type&)
     };
 
     // bool specialization
     template<> class vector<bool> {
-        SWIG_STD_VECTOR_MINIMUM_INTERNAL(bool, bool)
+        SWIG_STD_VECTOR_INTERNAL(bool, bool)
     };
 }
 

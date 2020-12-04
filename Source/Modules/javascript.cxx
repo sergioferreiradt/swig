@@ -632,11 +632,11 @@ int JAVASCRIPT::memberfunctionHandler(Node *n)
 
 /**
  * Executed when a directive is inserted
- * Check if the insertion is to be done as "proxycode" and if a class is
+ * Check if the insertion is to be done as "tstypecode" and if a class is
  * being handled (classHandler executed) and if so, store the code in the
  * object representation of the TypeScriptTypeDefinition
  * If not, execute the standard Language insertDirective
- * Ignore %proxybasecode because it will be used for base template classes
+ * Ignore %tstypebasecode because it will be used for base template classes
  * only.
  *
  * @param n The node representing the code
@@ -647,12 +647,12 @@ int JAVASCRIPT::insertDirective(Node *n)
   String *code = Getattr(n, "code");
   String *section = Getattr(n, "section");
 
-  if (Cmp(section, "proxybasecode") == 0)
+  if (Cmp(section, "tstypebasecode") == 0)
   {
     return SWIG_OK;
   }
 
-  if (Cmp(section, "proxycode") == 0)
+  if (Cmp(section, "tstypecode") == 0)
   {
     if (tsTypeInterfaceDeclaration)
     {
@@ -2967,10 +2967,10 @@ String *TypeScriptTypes::getBaseClass(Node *n)
  * 1 - Try to find a class corresponding to the node received as parameter.
  * 2 - If the class does not exist try to find an enum
  * 3 - If a class or an enum does not exist return NULL
- * 4 - If the node found have already a "proxyname" attribute, return it
+ * 4 - If the node found have already a "tstypename" attribute, return it
  * 5 - Otherwise get the sym:name property from the class and return it
  *
- * @param T A node representing the Type to which is necessary to get the proxyname
+ * @param T A node representing the Type to which is necessary to get the tstypename
  *
  * @return A string with the Type name to be used in the TypeScript Type Definition
  * Interface or null if cannot find a class or enum or the node does not have "sym:name" property
@@ -2989,7 +2989,7 @@ String *TypeScriptTypes::getTsTypeName(SwigType *t)
     return NULL;
   }
 
-  tsTypeName = Getattr(n, "proxyname");
+  tsTypeName = Getattr(n, "tstypename");
   if (tsTypeName)
   {
     return tsTypeName;
@@ -3001,7 +3001,7 @@ String *TypeScriptTypes::getTsTypeName(SwigType *t)
     return NULL;
   }
   tsTypeName = Copy(symname);
-  Setattr(n, "proxyname", tsTypeName); // Cache it
+  Setattr(n, "tstypename", tsTypeName); // Cache it
   return tsTypeName;
 }
 

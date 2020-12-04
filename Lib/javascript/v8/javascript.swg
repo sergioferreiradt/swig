@@ -38,5 +38,5 @@
 %typemap(typescripttype) double,             const double &             "number"
 
 // Create a macro to insert into a code section
-#define %proxycode                          %insert("proxycode")
-#define %proxybasecode                      %insert("proxybasecode")
+#define %tstypecode                          %insert("tstypecode")
+#define %tstypebasecode                      %insert("tstypebasecode")
