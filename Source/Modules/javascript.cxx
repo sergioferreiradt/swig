@@ -399,6 +399,7 @@ private:
 /**********************************************************************
  * JAVASCRIPT: SWIG module implementation
  **********************************************************************/
+
 class JAVASCRIPT:public TypeScriptTypes {
 
 public:
