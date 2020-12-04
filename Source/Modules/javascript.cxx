@@ -404,7 +404,6 @@ public:
 
   JAVASCRIPT():emitter(NULL) {
   }
-
   ~JAVASCRIPT() {
     delete emitter;
   }
@@ -570,6 +569,7 @@ int JAVASCRIPT::nativeWrapper(Node *n) {
  *
  * Function handler for generating wrappers for class
  * --------------------------------------------------------------------- */
+
 int JAVASCRIPT::classHandler(Node *n) {
   emitter->switchNamespace(n);
 
