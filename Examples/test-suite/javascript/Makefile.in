@@ -28,6 +28,10 @@ else
     JSV8_VERSION=0x031110
 endif
 
+CPP_TEST_CASES = \
+	typescript_interface \
+	typescript_two_interfaces
+
 include $(srcdir)/../common.mk
 
 SWIGOPT += -DV8_VERSION=$(JSV8_VERSION)
@@ -55,6 +59,7 @@ ifeq (node,$(JSENGINE))
 
   # Custom tests - tests with additional command line options and specific
   typescript_interface.cpptest: SWIGOPT += -tstypes
+  typescript_two_interfaces.cpptest: SWIGOPT += -tstypes
 
 	setup_node = \
 		test -d $* || mkdir $* && \
@@ -85,7 +90,6 @@ ifeq (node,$(JSENGINE))
 		if [ -f $(srcdir)/$*$(SCRIPTSUFFIX) ]; then \
 			env NODE_PATH=$$PWD:$(srcdir) $(RUNTOOL) $(NODEJS) $(srcdir)/$*$(SCRIPTSUFFIX); \
 		fi
-
   %.ctest:
 		$(_setup)
 		+$(swig_and_compile_c)
