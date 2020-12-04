@@ -90,6 +90,8 @@ ifeq (node,$(JSENGINE))
 		if [ -f $(srcdir)/$*$(SCRIPTSUFFIX) ]; then \
 			env NODE_PATH=$$PWD:$(srcdir) $(RUNTOOL) $(NODEJS) $(srcdir)/$*$(SCRIPTSUFFIX); \
 		fi
+
+
   %.ctest:
 		$(_setup)
 		+$(swig_and_compile_c)

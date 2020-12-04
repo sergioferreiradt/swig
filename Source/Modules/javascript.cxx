@@ -402,7 +402,7 @@ class JAVASCRIPT:public TypeScriptTypes {
 
 public:
 
-  JAVASCRIPT() : emitter(NULL) {
+  JAVASCRIPT():emitter(NULL) {
   }
 
   ~JAVASCRIPT() {
@@ -436,10 +436,9 @@ public:
   virtual String *getNSpace() const;
 
 private:
+
   JSEmitter *emitter;
-
 };
-
 
 /* ---------------------------------------------------------------------
  * functionWrapper()
@@ -571,8 +570,7 @@ int JAVASCRIPT::nativeWrapper(Node *n) {
  *
  * Function handler for generating wrappers for class
  * --------------------------------------------------------------------- */
-int JAVASCRIPT::classHandler(Node *n)
-{
+int JAVASCRIPT::classHandler(Node *n) {
   emitter->switchNamespace(n);
 
   emitter->enterClass(n);
@@ -698,6 +696,7 @@ int JAVASCRIPT::top(Node *n) {
 
   emitter->dump(n);
   emitter->close();
+
   return SWIG_OK;
 }
 
