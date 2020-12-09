@@ -412,14 +412,10 @@ public:
 
   virtual int functionHandler(Node *n);
   virtual int globalfunctionHandler(Node *n);
-  virtual int memberfunctionHandler(Node *n);
   virtual int variableHandler(Node *n);
   virtual int globalvariableHandler(Node *n);
   virtual int staticmemberfunctionHandler(Node *n);
-  virtual int membervariableHandler(Node *n);
   virtual int classHandler(Node *n);
-  virtual int enumDeclaration(Node *n);
-  virtual int enumvalueDeclaration(Node *n);
   virtual int functionWrapper(Node *n);
   virtual int constantWrapper(Node *n);
   virtual int nativeWrapper(Node *n);
@@ -579,53 +575,6 @@ int JAVASCRIPT::classHandler(Node *n) {
   emitter->exitClass(n);
 
   return returnValue;
-}
-
-/**
- * Executed by SWIG to manage a declared C++ public variable
- *
- * @param n The node representing the public variable
- * @return status to swig decide what to do
- */
-int JAVASCRIPT::membervariableHandler(Node *n)
-{
-  return TypeScriptTypes::membervariableHandler(n);
-}
-
-/**
- * Executed for each enum, found when navigating in the node tree
- *
- * @param n The node that represents the enumerated
- * @return The SWIG status
- */
-int JAVASCRIPT::enumDeclaration(Node *n)
-{
-  TypeScriptTypes::enumDeclaration(n);
-  return SWIG_OK;
-}
-
-/**
- * Executed when navigating in the tree, when a value declaration node
- * is found.
- *
- * @param n The node of the value declaration
- * @return The SWIG status
- */
-int JAVASCRIPT::enumvalueDeclaration(Node *n)
-{
-  return TypeScriptTypes::enumvalueDeclaration(n);
-}
-
-/**
- * Handler executed in tree navigation when it encounters a class
- * member function
- *
- * @param n The node that represents class member function
- * @return SWIG status
- */
-int JAVASCRIPT::memberfunctionHandler(Node *n)
-{
-  return TypeScriptTypes::memberfunctionHandler(n);
 }
 
 int JAVASCRIPT::fragmentDirective(Node *n) {
@@ -2684,7 +2633,7 @@ void TsTypeInterface::generateTsTypes()
   }
 
   if ( Len(tsTypeExtraCode) > 0 )
-  Printf(typesFilePtr, "\n%s", tsTypeExtraCode);
+    Printf(typesFilePtr, "\n%s", tsTypeExtraCode);
   Printf(typesFilePtr, "}\n\n");
 }
 
@@ -2711,7 +2660,6 @@ void TsTypeInterface::addMemberFunction(Node *n)
   if (!Getattr(functionList, functionName))
   {
     Setattr(functionList, functionName, n);
-    // Printf(variableClassCode, "   %s: Function;\n", Getattr(n, "sym:name"));
   }
 }
 
@@ -2752,9 +2700,11 @@ void TsTypeInterface::insertCode(String *code)
  */
 int TypeScriptTypes::top(Node *n) {
   if (generateTsTypes) {
-     String *typesFilePath = NewStringf("%s%s", SWIG_output_directory(), "types.d.ts");
+     String *moduleNameKebabCase = Swig_string_kebabcase(Getattr(n, "name"));
+     String *typesFilePath = NewStringf("%s%s-types.d.ts", SWIG_output_directory(), moduleNameKebabCase);
      declarationFilePtr = NewFile(typesFilePath, "w", SWIG_output_files());
      Delete(typesFilePath);
+     Delete(moduleNameKebabCase);
   }
   Language::top(n);
   return SWIG_OK;
