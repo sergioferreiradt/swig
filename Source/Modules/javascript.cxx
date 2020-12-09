@@ -112,7 +112,6 @@ class TsTypeInterface
 public:
   enum TsType
   {
-    classType,
     interfaceType,
     enumType
   };
@@ -2602,9 +2601,6 @@ void TsTypeInterface::generateTsTypes()
   String *tsTypeName;
   switch (tsType)
   {
-  case classType:
-    tsTypeName = NewString("export class");
-    break;
   case enumType:
     tsTypeName = NewString("declare enum");
     break;
