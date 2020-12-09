@@ -566,16 +566,16 @@ String *Swig_string_kebabcase(String *s)
   int c;
   int lastC = 0;
   int nextC = 0;
-  int underscore = 0;
+  int dash = 0;
   ns = NewStringEmpty();
 
   /* We insert a dash when:
      1. Lower case char followed by upper case char
-     getFoo > get_foo; getFOo > get_foo; GETFOO > getfoo
+     getFoo > get-foo; getFOo > get-foo; GETFOO > getfoo
      2. Number preceded by char and not end of string
-     get2D > get_2d; get22D > get_22d; GET2D > get_2d
+     get2D > get-2d; get22D > get-22d; GET2D > get-2d
      but:
-     asFloat2 > as_float2
+     asFloat2 > as-float2
   */
 
   Seek(s, 0, SEEK_SET);
@@ -585,19 +585,22 @@ String *Swig_string_kebabcase(String *s)
     nextC = Getc(s);
     Ungetc(nextC, s);
     if (isdigit(c) && isalpha(lastC) && nextC != EOF)
-      underscore = 1;
+      dash = 1;
     else if (isupper(c) && isalpha(lastC) && !isupper(lastC))
-      underscore = 1;
+      dash = 1;
 
     lastC = c;
 
-    if (underscore)
+    if (dash)
     {
       Putc('-', ns);
-      underscore = 0;
+      dash = 0;
     }
 
-    Putc(tolower(c), ns);
+    if (c == '_')
+      Putc('-', ns);
+    else
+      Putc(tolower(c), ns);
   }
   return ns;
 }
