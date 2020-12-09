@@ -30,7 +30,10 @@ endif
 
 CPP_TEST_CASES = \
 	typescript_interface \
-	typescript_two_interfaces
+	typescript_two_interfaces \
+	typescript_inheritance \
+	typescript_remapbasetype \
+	typescript_multiple_inheritance
 
 include $(srcdir)/../common.mk
 
@@ -61,6 +64,8 @@ ifeq (node,$(JSENGINE))
   typescript_interface.cpptest: SWIGOPT += -tstypes
   typescript_two_interfaces.cpptest: SWIGOPT += -tstypes
   typescript_inheritance.cpptest: SWIGOPT += -tstypes
+  typescript_remapbasetype.cpptest: SWIGOPT += -tstypes
+  typescript_multiple_inheritance.cpptest: SWIGOPT += -tstypes
 
 	setup_node = \
 		test -d $* || mkdir $* && \
