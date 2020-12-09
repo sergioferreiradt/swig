@@ -1,4 +1,4 @@
-import { C } from './types';
+import { C } from './typescript-interface-types';
 
 const typescript_interface = require("./typescript_interface");
 

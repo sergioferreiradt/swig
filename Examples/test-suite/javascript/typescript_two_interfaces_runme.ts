@@ -1,4 +1,4 @@
-import { A, C } from './types';
+import { A, C } from './typescript-two-interfaces-types';
 
 const typescript_two_interfaces = require("./typescript_two_interfaces");
 
