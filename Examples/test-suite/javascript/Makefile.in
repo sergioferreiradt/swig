@@ -28,12 +28,14 @@ else
     JSV8_VERSION=0x031110
 endif
 
-CPP_TEST_CASES = \
-	typescript_interface \
+TS_TEST_CASES = \
+    typescript_interface \
 	typescript_two_interfaces \
 	typescript_inheritance \
 	typescript_remapbasetype \
 	typescript_multiple_inheritance
+
+CPP_TEST_CASES := $(TS_TEST_CASES)
 
 include $(srcdir)/../common.mk
 
@@ -61,11 +63,7 @@ ifeq (node,$(JSENGINE))
   enum_thorough.cpptest: GYP_CFLAGS = \"-Wno-ignored-qualifiers\"
 
   # Custom tests - tests with additional command line options and specific
-  typescript_interface.cpptest: SWIGOPT += -tstypes
-  typescript_two_interfaces.cpptest: SWIGOPT += -tstypes
-  typescript_inheritance.cpptest: SWIGOPT += -tstypes
-  typescript_remapbasetype.cpptest: SWIGOPT += -tstypes
-  typescript_multiple_inheritance.cpptest: SWIGOPT += -tstypes
+  $(foreach t,$(TS_TEST_CASES),$(t).cpptest): SWIGOPT += -tstypes
 
 	setup_node = \
 		test -d $* || mkdir $* && \
