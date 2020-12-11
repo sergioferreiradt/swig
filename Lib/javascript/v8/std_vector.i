@@ -11,7 +11,6 @@
 
 
 %define SWIG_STD_VECTOR_INTERNAL(CTYPE, CONST_REFERENCE)
-%typemap(typescriptbase)   std::vector< CTYPE > ""
 %tstypebasecode %{  size: Function;
   capacity: Function;
   reserve: Function;

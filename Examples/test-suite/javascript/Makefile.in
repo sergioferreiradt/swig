@@ -32,7 +32,6 @@ TS_TEST_CASES = \
     typescript_interface \
 	typescript_two_interfaces \
 	typescript_inheritance \
-	typescript_remapbasetype \
 	typescript_multiple_inheritance
 
 CPP_TEST_CASES := $(TS_TEST_CASES)
