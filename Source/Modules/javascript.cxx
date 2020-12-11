@@ -122,20 +122,17 @@ public:
   explicit TsTypeInterface(TsType type) : tsType(type)
   {
     functionList = NewHash();
+    baseClassName = NULL;
+    className = NULL;
     variableClassCode = NewString("");
-    functionClassCode = NewString("");
-    tsTypeExtraCode = NewString("");
-    className = NewString("");
-    baseClassName = NewString("");
+    tsTypeExtraCode = NULL;
   };
   ~TsTypeInterface()
   {
     Delete(functionList);
     Delete(baseClassName);
     Delete(className);
-    Delete(typesFilePath);
     Delete(variableClassCode);
-    Delete(functionClassCode);
     Delete(tsTypeExtraCode);
   }
   void generateTsTypes();
@@ -147,13 +144,11 @@ public:
   void insertCode(String *code);
 
 private:
-  String *typesFilePath;
 
   Hash *functionList;
   String *className;
   String *baseClassName;
   String *variableClassCode;
-  String *functionClassCode;
   String *tsTypeExtraCode;
   TsType tsType;
   String *getTsTypeName(SwigType *t);
@@ -2611,7 +2606,7 @@ void TsTypeInterface::generateTsTypes()
 
   Printf(typesFilePtr, "%s %s ", tsTypeName, className);
 
-  if ( Len(baseClassName) > 0)
+  if ( baseClassName != NULL)
   {
     Printf(typesFilePtr, "extends %s ", baseClassName);
   }
@@ -2628,7 +2623,7 @@ void TsTypeInterface::generateTsTypes()
     }
   }
 
-  if ( Len(tsTypeExtraCode) > 0 )
+  if ( tsTypeExtraCode != NULL )
     Printf(typesFilePtr, "\n%s", tsTypeExtraCode);
   Printf(typesFilePtr, "}\n\n");
 }
@@ -2685,7 +2680,7 @@ void TsTypeInterface::addEnumValue(Node *n, String *value)
  */
 void TsTypeInterface::insertCode(String *code)
 {
-  Printf(tsTypeExtraCode, "%s", code);
+  tsTypeExtraCode = Copy(code);
 }
 
 
@@ -2845,11 +2840,7 @@ int TypeScriptTypes::insertDirective(Node *n)
 /**
  * Obtain the information about the base class that a node extends
  *
- * 1- If a typemap with name "typescriptbase" exists for the class, then
- * its value is returned as base class (to be declared in extends). If does
- * not exist continues to next steps.
- *
- * 2 - Get a list of base classes (C++ can have multiple inheritance), from
+ * Get a list of base classes (C++ can have multiple inheritance), from
  * where get the name of the base class as it should be used in the TypeScript Type
  * Type definition Interface.
  * Note, that if the class is annotated with "feature:ignore" or "feature:interface"
@@ -2862,13 +2853,6 @@ int TypeScriptTypes::insertDirective(Node *n)
 String *TypeScriptTypes::getBaseClass(Node *n)
 {
   String *returnBaseClassName = NULL;
-
-  String *typemapLookupCppType = Getattr(n, "name");
-  String *typescriptTypemapBaseClassName = typemapLookup(n, "typescriptbase", typemapLookupCppType);
-  if (typescriptTypemapBaseClassName && Strcmp(typescriptTypemapBaseClassName, "") != 0)
-  {
-    return typescriptTypemapBaseClassName;
-  }
 
   List *baselist = Getattr(n, "bases");
   if (!baselist)
