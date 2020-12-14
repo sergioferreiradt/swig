@@ -13,7 +13,7 @@ if [[ -n "$GCC" ]]; then
 	travis_retry sudo apt-get install -qq g++-$GCC
 fi
 
-travis_retry sudo apt-get -qq install libboost-dev
+travis_retry sudo apt-get -qq install libboost-dev libpcre3-dev
 
 WITHLANG=$SWIGLANG
 
@@ -39,9 +39,11 @@ case "$SWIGLANG" in
 				[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 				travis_retry nvm install ${VER}
 				nvm use ${VER}
-				if [ "$VER" == "0.10" ] || [ "$VER" == "0.12" ] || [ "$VER" == "4" ] ; then
+				if [ "$VER" == "0.10" ] || [ "$VER" == "0.12" ] || [ "$VER" == "4" ] || [ "$VER" == "6" ] ; then
 #					travis_retry sudo apt-get install -qq nodejs node-gyp
 					travis_retry npm install -g node-gyp@$VER
+				elif [ "$VER" == "8" ] ; then
+					travis_retry npm install -g node-gyp@6
 				else
 					travis_retry npm install -g node-gyp
 				fi

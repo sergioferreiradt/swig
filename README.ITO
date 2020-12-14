@@ -1,0 +1,61 @@
+This directory contains sources and binaries of SWIG (http://www.swig.org)
+
+The master branch is the unmodified master from the upstream repository
+(https://github.com/swig/swig), but the current branch is the "ito" one,
+containing our changes to SWIG, if any (there used to be quite a few, but
+as of 2019-04-26 they have been all merged upstream) and the extra files
+allowing to build SWIG with MSVC as well as pre-built binaries for Win64
+and Linux x86_64.
+
+To rebuild these binaries:
+
+1. Under Linux, you must build under a distribution with the oldest supported
+   version of libc and libstdc++, currently this means CentOS 6.
+
+ (a) Get the sources of PCRE (_not_ PCRE2!) library, either by downloading
+     them from https://ftp.pcre.org/pub/pcre/ or from their Subversion repo.
+     Note: do _not_ use the system libpcre package as this will result in a
+     less portable binary than linking it statically as done below.
+
+ (b) Put these sources in "pcre" subdirectory and run
+
+	$ ./configure --disable-shared --prefix=`pwd`/pcre-swig-install
+
+     there, then
+
+	$ make install
+
+ (c) Update the version that will be output by `swig -version`: manually
+     replace the 2nd argument of AC_INIT() in the beginning of configure.ac
+     with the output of
+
+	$ git describe --tags
+
+ (d) Now go to the parent directory and build SWIG itself:
+
+	$ ./autogen.sh
+	$ ./configure
+	$ make
+
+    There is no need to install it, only the binary itself is needed and should
+    be copied to Bin subdirectory.
+
+2. Under MSW, you will also need the PCRE sources.
+
+ Note: we build 64-bit version of SWIG because it's slightly faster and
+       doesn't risk running out of memory.
+
+ (a) Use CMake to generate MSVS projects for PCRE.
+ (b) Edit the projects to use /MT instead of /MD.
+ (c) Build `pcre.lib`. and copy it and `pcre.h` to Source subdirectory.
+
+ Next:
+
+ (d) Update all version occurrences in Source/Include/msvc/swigconfig.h to use
+     the output of `git describe --tags`. This currently needs to be done
+     manually too.
+
+ Finally build SWIG itself:
+
+ (e) From MSVS tools command prompt do `make -f Makefile.cl`, the resulting
+     binary will be in Source subdirectory.

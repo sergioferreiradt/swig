@@ -37,7 +37,9 @@
 SWIGINTERN char*
 SWIG_Python_str_AsChar(PyObject *str)
 {
-#if PY_VERSION_HEX >= 0x03000000
+#if PY_VERSION_HEX >= 0x03030000
+  return (char *)PyUnicode_AsUTF8(str);
+#elif PY_VERSION_HEX >= 0x03000000
   char *newstr = 0;
   str = PyUnicode_AsUTF8String(str);
   if (str) {
@@ -56,10 +58,10 @@ SWIG_Python_str_AsChar(PyObject *str)
 #endif
 }
 
-#if PY_VERSION_HEX >= 0x03000000
-#  define SWIG_Python_str_DelForPy3(x) free( (void*) (x) )
+#if PY_VERSION_HEX >= 0x03030000 || PY_VERSION_HEX < 0x03000000
+#  define SWIG_Python_str_DelForPy3(x)
 #else
-#  define SWIG_Python_str_DelForPy3(x) 
+#  define SWIG_Python_str_DelForPy3(x) free( (void*) (x) )
 #endif
 
 
@@ -86,4 +88,15 @@ SWIG_Python_str_FromChar(const char *c)
 #define PyDescr_TYPE(x) (((PyDescrObject *)(x))->d_type)
 #define PyDescr_NAME(x) (((PyDescrObject *)(x))->d_name)
 #define Py_hash_t long
+#endif
+
+#ifdef Py_LIMITED_API
+# define PyTuple_GET_ITEM PyTuple_GetItem
+# define PyTuple_GET_SIZE PyTuple_Size
+# define PyCFunction_GET_FLAGS PyCFunction_GetFlags
+# define PyCFunction_GET_FUNCTION PyCFunction_GetFunction
+# define PyCFunction_GET_SELF PyCFunction_GetSelf
+# define PyList_GET_ITEM PyList_GetItem
+# define PyList_SET_ITEM PyList_SetItem
+# define PySliceObject PyObject
 #endif

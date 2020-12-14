@@ -70,6 +70,7 @@ static int max_bases = 0;
 static int builtin_bases_needed = 0;
 
 static int py3 = 0;
+static int py3_stable_abi = 0;
 
 /* C++ Support + Shadow Classes */
 
@@ -127,6 +128,7 @@ static const char *usage3 = "\
      -nothreads      - Disable thread support for the entire interface\n\
      -olddefs        - Keep the old method definitions when using -fastproxy\n\
      -py3            - Generate code with Python 3 specific features and syntax\n\
+     -py3-stable-abi - Generate code compatible with Python 3 stable ABI (PEP 384)\n\
      -relativeimport - Use relative Python imports\n\
      -threads        - Add thread support for all the interface\n\
      -O              - Enable the following optimization options:\n\
@@ -393,6 +395,11 @@ public:
 	  py3 = 1;
 	  Preprocessor_define("SWIGPYTHON_PY3", 0);
 	  Swig_mark_arg(i);
+	} else if (strcmp(argv[i], "-py3-stable-abi") == 0) {
+	  py3_stable_abi = 1;
+	  py3 = 1;
+	  Preprocessor_define("SWIGPYTHON_PY3", 0);
+	  Swig_mark_arg(i);
 	} else if (strcmp(argv[i], "-builtin") == 0) {
 	  builtin = 1;
 	  Preprocessor_define("SWIGPYTHON_BUILTIN", 0);
@@ -446,6 +453,24 @@ public:
 
     if (doxygen)
       doxygenTranslator = new PyDocConverter(doxygen_translator_flags);
+
+    if (py3_stable_abi && builtin) {
+      Printf(stderr, "-py3-stable-abi and -builtin options are not compatible.\n");
+      SWIG_exit(EXIT_FAILURE);
+    }
+
+    if (py3_stable_abi && threads && directorsEnabled()) {
+      // directors + threads uses PyThread_* APIs, which are not exported from python3.dll on Windows,
+      // despite nominally being a part of the stable ABI. 
+      // To prevent confusing users with linker errors, we disable this combination.  
+      Printf(stderr, "-py3-stable-abi, -threads and -directors options are not compatible.\n");
+      SWIG_exit(EXIT_FAILURE);
+    }
+
+    if (py3_stable_abi && fastproxy) {
+      Printf(stderr, "-py3-stable-abi and -fastproxy options are not compatible.  Disabling -fastproxy.\n");
+      fastproxy = 0;
+    }
 
     if (!global_name)
       global_name = NewString("cvar");
@@ -609,6 +634,10 @@ public:
 
     if (builtin) {
       Printf(f_runtime, "#define SWIGPYTHON_BUILTIN\n");
+    }
+
+    if (py3_stable_abi) {
+      Printf(f_runtime, "#define Py_LIMITED_API 0x03040000\n");
     }
 
     Printf(f_runtime, "\n");
@@ -905,15 +934,15 @@ public:
    * as a replacement of new.instancemethod in Python 3.
    * ------------------------------------------------------------ */
   int add_pyinstancemethod_new() {
-    String *name = NewString("SWIG_PyInstanceMethod_New");
-    String *line = NewString("");
-    Printf(line, "\t { \"%s\", %s, METH_O, NULL},\n", name, name);
-    Append(methods, line);
     if (fastproxy) {
+      String *name = NewString("SWIG_PyInstanceMethod_New");
+      String *line = NewString("");
+      Printf(line, "\t { \"%s\", %s, METH_O, NULL},\n", name, name);
+      Append(methods, line);
       Append(methods_proxydocs, line);
+      Delete(line);
+      Delete(name);
     }
-    Delete(line);
-    Delete(name);
     return 0;
   }
 
@@ -1571,7 +1600,8 @@ public:
 
   String *docstring(Node *n, autodoc_t ad_type, const String *indent, bool low_level = false) {
     String *docstr = build_combined_docstring(n, ad_type, indent, low_level);
-    if (!Len(docstr))
+    const int len = Len(docstr);
+    if (!len)
       return docstr;
 
     // Notice that all comments are created as raw strings (prefix "r"),
@@ -1584,9 +1614,32 @@ public:
     // escape '\x'. '\' may additionally appear in verbatim or htmlonly sections
     // of doxygen doc, Latex expressions, ...
     String *doc = NewString("");
-    Append(doc, "r\"\"\"");
+
+    // Determine which kind of quotes to use as delimiters: for single line
+    // strings we can avoid problems with having a quote as the last character
+    // of the docstring by using different kind of quotes as delimiters. For
+    // multi-line strings this problem doesn't arise, as we always have a new
+    // line or spaces at the end of it, but it still does no harm to do it for
+    // them too.
+    //
+    // Note: we use double quotes by default, i.e. if there is no reason to
+    // prefer using single ones, for consistency with the older SWIG versions.
+    const bool useSingleQuotes = (Char(docstr))[len - 1] == '"';
+
+    Append(doc, useSingleQuotes ? "r'''" : "r\"\"\"");
+
+    // We also need to avoid having triple quotes of whichever type we use, as
+    // this would break Python doc string syntax too. Unfortunately there is no
+    // way to have triple quotes inside of raw-triple-quoted string, so we have
+    // to break the string in parts and rely on concatenation of the adjacent
+    // string literals.
+    if (useSingleQuotes)
+      Replaceall(docstr, "'''", "''' \"'''\" '''");
+    else
+      Replaceall(docstr, "\"\"\"", "\"\"\" '\"\"\"' \"\"\"");
+
     Append(doc, docstr);
-    Append(doc, "\"\"\"");
+    Append(doc, useSingleQuotes ? "'''" : "\"\"\"");
     Delete(docstr);
 
     return doc;
