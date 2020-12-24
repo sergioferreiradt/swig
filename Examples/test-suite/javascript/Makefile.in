@@ -5,6 +5,7 @@
 LANGUAGE     = javascript
 NODEGYP = @NODEGYP@
 NODEJS = @NODEJS@
+TS_NODE := ts-node
 SCRIPTSUFFIX = _runme.js
 OBJEXT = @OBJEXT@
 SO = @SO@
@@ -89,11 +90,9 @@ ifeq (node,$(JSENGINE))
 
 	run_testcase = \
 		if [ -f $(srcdir)/$*_runme.ts ]; then \
-			ts-node $(srcdir)/$*_runme.ts; \
-		else \
-		   if [ -f $(srcdir)/$*$(SCRIPTSUFFIX) ]; then \
+			env NODE_PATH=$$PWD:$(srcdir) $(RUNTOOL) $(TS_NODE) $(srcdir)/$*_runme.ts; \
+		elif [ -f $(srcdir)/$*$(SCRIPTSUFFIX) ]; then \
 			env NODE_PATH=$$PWD:$(srcdir) $(RUNTOOL) $(NODEJS) $(srcdir)/$*$(SCRIPTSUFFIX); \
-		   fi\
 	    fi
 
 
