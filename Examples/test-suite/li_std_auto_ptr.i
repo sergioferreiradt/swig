@@ -12,30 +12,21 @@
 #endif
 %}
 
-#if defined(SWIGCSHARP) || defined(SWIGJAVA) || defined(SWIGPYTHON) || defined(SWIGRUBY)
+#if defined(SWIGCSHARP) || defined(SWIGJAVA) || defined(SWIGPYTHON) || defined(SWIGJAVASCRIPT)
+
+// Prefer using std::unique_ptr<> if it's available, as auto_ptr<> generates
+// deprecation warnings with C++14 compilers and may not exist at all when
+// using C++17.
+#if __cplusplus >= 201103L
+#define SWIG_AUTO_PTR_CLASSNAME unique_ptr
+#endif
 
 %include "std_auto_ptr.i"
 
 %auto_ptr(Klass)
 
 %{
-#if __cplusplus < 201703L
 #include <memory>
-#else
-// Simple std::auto_ptr implementation for testing after its removal in C++17
-namespace std {
-  template <class T> class auto_ptr {
-    T *ptr;
-    public:
-      auto_ptr(T *ptr = 0) : ptr(ptr) {}
-      auto_ptr(auto_ptr&& a) : ptr(a.ptr) { a.ptr = 0;}
-      ~auto_ptr() { delete ptr; }
-      T *release() { T *p = ptr; ptr = 0; return p; }
-      auto_ptr& operator=(auto_ptr&& a) { if (&a != this) { delete ptr; ptr = a.ptr; a.ptr = 0; } return *this; }
-  };
-}
-#endif
-
 #include <string>
 #include "swig_examples_lock.h"
 %}

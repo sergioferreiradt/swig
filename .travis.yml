@@ -151,7 +151,12 @@ matrix:
       os: linux
       env: SWIGLANG=octave SWIGJOBS=-j2
       sudo: required
-      dist: xenial
+      dist: xenial   # Octave v4.0.0
+    - compiler: gcc
+      os: linux
+      env: SWIGLANG=octave SWIGJOBS=-j2 CPP11=1
+      sudo: required
+      dist: bionic   # Octave v4.2.2
     - compiler: gcc
       os: linux
       env: SWIGLANG=perl5
@@ -263,6 +268,16 @@ matrix:
     - compiler: gcc
       os: linux
       env: SWIGLANG=python SWIG_FEATURES=-builtin PY3=3 VER=3.8 SWIGOPTPY3=
+      sudo: required
+      dist: xenial
+    - compiler: gcc
+      os: linux
+      env: SWIGLANG=python SWIG_FEATURES=-py3-stable-abi PY3=3
+      sudo: required
+      dist: xenial
+    - compiler: gcc
+      os: linux
+      env: SWIGLANG=python SWIG_FEATURES="-py3-stable-abi -O" PY3=3
       sudo: required
       dist: xenial
     - compiler: gcc
@@ -419,6 +434,11 @@ matrix:
       env: SWIGLANG=python GCC=9 CPP17=1 PY3=3 VER=3.8
       sudo: required
       dist: xenial
+    - os: linux
+      arch: s390x
+      env: SWIGLANG=ruby CPP11=1
+      sudo: required
+      dist: xenial
     - compiler: gcc
       os: osx
       env: SWIGLANG=
@@ -433,7 +453,7 @@ matrix:
       env: SWIGLANG=go
     - compiler: clang
       os: osx
-      env: SWIGLANG=guile
+      env: SWIGLANG=guile CSTD=c11
     - compiler: clang
       os: osx
       env: SWIGLANG=java
@@ -442,7 +462,7 @@ matrix:
       env: SWIGLANG=lua
     - compiler: clang
       os: osx
-      env: SWIGLANG=octave SWIGJOBS=-j2
+      env: SWIGLANG=octave SWIGJOBS=-j2 CPP11=1
     - compiler: clang
       os: osx
       env: SWIGLANG=perl5
@@ -480,10 +500,6 @@ matrix:
       env: SWIGLANG=php VER=7.2
       sudo: required
       dist: xenial
-    # Sometimes hits the Travis 50 minute time limit
-    - compiler: clang
-      os: osx
-      env: SWIGLANG=octave SWIGJOBS=-j2
     # Experimental languages
     - compiler: gcc
       os: linux
@@ -499,7 +515,7 @@ matrix:
 before_install:
   - date -u
   - uname -a
-  - if test "$TRAVIS_OS_NAME" = "linux"; then lscpu && cat /proc/cpuinfo | grep "model name" && cat /proc/meminfo | grep MemTotal; fi
+  - if test "$TRAVIS_OS_NAME" = "linux"; then lscpu; grep "model name" /proc/cpuinfo || echo 'Unknown CPU model'; grep "MemTotal" /proc/meminfo || echo 'Unknown system memory amount'; fi
   - if test "$TRAVIS_OS_NAME" = "osx"; then sysctl -a | grep brand_string; fi
   # Travis overrides CC environment with compiler predefined values
   - if test -n "$GCC"; then export CC="gcc-$GCC" && export CXX="g++-$GCC"; fi
