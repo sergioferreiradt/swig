@@ -14,6 +14,7 @@
 #include <ctype.h>
 #include "swigmod.h"
 #include "cparse.h"
+#include "errno.h"
 
 /**
  * Enables extra debugging information in typemaps.
@@ -2695,6 +2696,10 @@ int TypeScriptTypes::top(Node *n) {
      String *moduleNameKebabCase = Swig_string_kebabcase(Getattr(n, "name"));
      String *typesFilePath = NewStringf("%s%s-types.d.ts", SWIG_output_directory(), moduleNameKebabCase);
      declarationFilePtr = NewFile(typesFilePath, "w", SWIG_output_files());
+     if ( !declarationFilePtr ) {
+       Printf(stderr, "Error opening file (%s) : %s\n", typesFilePath, strerror(errno));
+	     SWIG_exit(-1);
+     }
      Delete(typesFilePath);
      Delete(moduleNameKebabCase);
   }

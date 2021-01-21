@@ -30,6 +30,7 @@ else
 endif
 
 TS_TEST_CASES = \
+	no_dir_permission \
     typescript_interface \
 	typescript_two_interfaces \
 	typescript_inheritance \
@@ -105,6 +106,14 @@ ifeq (node,$(JSENGINE))
 		$(_setup)
 		+$(swig_and_compile_cpp)
 		$(run_testcase)
+
+  no_dir_permission.cpptest no_dir_permission.ctest:
+		@echo "Executing swig to check if wrong directory generate an error"
+		$(eval RESULT := $(shell $(MAKE) -f $(top_builddir)/$(EXAMPLES)/Makefile SRCDIR='$(SRCDIR)' \
+		SWIG_LIB_DIR='$(SWIG_LIB_DIR)' SWIGEXE='$(SWIGEXE)' \
+		SWIGOPT='-c++ -javascript $(SWIGOPT) -tstypes -outdir /tmp/nonexistingdir -o typescript_interface_wrap.cxx $(srcdir)/../typescript_interface.i' swiginvoke 2>&1))
+		@echo "$(RESULT)" | grep "No such file or directory" > /dev/null
+
 
   %.multicpptest:
 		$(_setup)
