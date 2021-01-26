@@ -142,7 +142,7 @@ public:
   void addMemberVariable(Node *n, String *typescriptType);
   void addMemberFunction(Node *n);
   void addEnumValue(Node *n, String *value);
-  void insertCode(String *code);  // Printf(stdout,"EXIT findPragma\n");
+  void insertCode(String *code);
 
 private:
 
@@ -601,6 +601,7 @@ String *JAVASCRIPT::getNSpace() const {
 
 int JAVASCRIPT::top(Node *n) {
   emitter->initialize(n);
+
   TypeScriptTypes::top(n);
 
   emitter->dump(n);
