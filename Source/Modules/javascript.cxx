@@ -357,7 +357,7 @@ public:
   TsTypeInterface *tsTypeEnumDeclaration;
   File *declarationFilePtr;
 
-  TypeScriptTypes() : generateTsTypes(false), emittedImport(false) {}
+  TypeScriptTypes() : generateTsTypes(false) {}
   virtual int classHandler(Node *n);
   virtual int membervariableHandler(Node *n);
   virtual int memberfunctionHandler(Node *n);
@@ -367,7 +367,6 @@ public:
   virtual int top(Node *n);
 
 private:
-  bool emittedImport;
   String *getBaseClass(Node *n);
   String *getTsTypeName(SwigType *t);
   String *typemapLookup(Node *n, const char *typemapName, SwigType *type);
