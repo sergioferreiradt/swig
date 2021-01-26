@@ -142,7 +142,7 @@ public:
   void addMemberVariable(Node *n, String *typescriptType);
   void addMemberFunction(Node *n);
   void addEnumValue(Node *n, String *value);
-  void insertCode(String *code);
+  void insertCode(String *code);  // Printf(stdout,"EXIT findPragma\n");
 
 private:
 
@@ -371,6 +371,7 @@ private:
   String *getBaseClass(Node *n);
   String *getTsTypeName(SwigType *t);
   String *typemapLookup(Node *n, const char *typemapName, SwigType *type);
+  Node *findPragma(Node *node, String *lang, String *name);
   String *getTypescriptType(Node *n);
   void generateBaseInterfaces(Node *topNode);
   void generateBaseInterface(Node *topNode, const char *interfaceName);
@@ -601,7 +602,6 @@ String *JAVASCRIPT::getNSpace() const {
 
 int JAVASCRIPT::top(Node *n) {
   emitter->initialize(n);
-
   TypeScriptTypes::top(n);
 
   emitter->dump(n);
@@ -2689,19 +2689,32 @@ void TsTypeInterface::insertCode(String *code)
 // TypeScriptTypes intermediate class methods implementation
 
 /**
- * Start of traversal the AST
+ * Start of traversal the AST to emit the code.
+ *
+ * @param n The top of the Parse Tree
  */
 int TypeScriptTypes::top(Node *n) {
   if (generateTsTypes) {
-     String *moduleNameKebabCase = Swig_string_kebabcase(Getattr(n, "name"));
-     String *typesFilePath = NewStringf("%s%s-types.d.ts", SWIG_output_directory(), moduleNameKebabCase);
-     declarationFilePtr = NewFile(typesFilePath, "w", SWIG_output_files());
-     if ( !declarationFilePtr ) {
-       Printf(stderr, "Error opening file (%s) : %s\n", typesFilePath, strerror(errno));
-	     SWIG_exit(-1);
-     }
-     Delete(typesFilePath);
-     Delete(moduleNameKebabCase);
+    String *moduleNameKebabCase = Swig_string_kebabcase(Getattr(n, "name"));
+    String *typesFilePath = NewStringf("%s%s-types.d.ts", SWIG_output_directory(), moduleNameKebabCase);
+    declarationFilePtr = NewFile(typesFilePath, "w", SWIG_output_files());
+    if ( !declarationFilePtr ) {
+      Printf(stderr, "Error opening file (%s) : %s\n", typesFilePath, strerror(errno));
+	    SWIG_exit(-1);
+    }
+    Delete(typesFilePath);
+    Delete(moduleNameKebabCase);
+    String *tsImportsLanguage = NewString("javascript");
+    String *tsImportsName = NewString("tsimports");
+    Node *tsImportsPragma = findPragma(n,tsImportsLanguage, tsImportsName);
+    if (tsImportsPragma) {
+      String *tsImportsStr = NewString(Getattr(tsImportsPragma,"value"));
+      Replaceall(tsImportsStr, "\\\"", "\"");
+      Printf(declarationFilePtr, "%s\n", tsImportsStr);
+      Delete(tsImportsStr);
+    }
+    Delete(tsImportsLanguage);
+    Delete(tsImportsName);
   }
   Language::top(n);
   return SWIG_OK;
@@ -2725,15 +2738,6 @@ int TypeScriptTypes::classHandler(Node *n)
   int returnValue = Language::classHandler(n);
   if (generateTsTypes)
   {
-    if (!emittedImport) {
-      String *swigType = NewString("SWIGTYPE");
-      String *typescriptImports = typemapLookup(n, "typescriptimports", swigType);
-      Printf(declarationFilePtr, "%s\n", typescriptImports);
-      Delete(swigType);
-      Delete(typescriptImports);
-      emittedImport = true;
-    }
-
     tsTypeInterfaceDeclaration->setBaseClassName(getBaseClass(n));
     tsTypeInterfaceDeclaration->typesFilePtr = declarationFilePtr;
     tsTypeInterfaceDeclaration->generateTsTypes();
@@ -2741,6 +2745,40 @@ int TypeScriptTypes::classHandler(Node *n)
     tsTypeInterfaceDeclaration = NULL;
   }
   return returnValue;
+}
+
+/**
+ * Navigate in the parse tree until find a specific pragma to a language
+ * or reach the end without finding it.
+ *
+ * @param top The node that is the root of the parse tree
+ * @param lang Target language
+ * @param name Name of the pragma
+ * @return The pragma node or NULL if not found
+ */
+Node *TypeScriptTypes::findPragma(Node *top, String *lang, String *name) {
+  Node *c;
+  for (c = firstChild(top); c; c = nextSibling(c)) {
+    if ( firstChild(c) ) {
+      Node *p = findPragma(c,lang,name);
+      if (p) {
+        return p;
+      }
+    }
+    char *tag = Char(nodeType(c));
+
+    if (Getattr(c, "error"))
+      continue;
+
+    if (strcmp(tag, "pragma") == 0) {
+      String *nodeLang = Getattr(c, "lang");
+      String *nodeName = Getattr(c, "name");
+      if ( Strcmp(nodeLang,lang) == 0 && Strcmp(nodeName, name) == 0) {
+        return c;
+      }
+    }
+  }
+  return NULL;
 }
 
 /**
