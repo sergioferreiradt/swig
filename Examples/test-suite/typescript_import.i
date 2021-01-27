@@ -4,11 +4,13 @@
 #include "typescript_d.h"
 %}
 
-%typemap(typescriptimports, noblock=1) SWIGTYPE {
-import { * } from './typescript-import-d-types';
+%pragma(javascript) tsimports=%{
+import { X } from './typescript-import-d-types';
+%}
 
-}
-
+%pragma(javascript) tsimports=%{
+import { D } from './typescript-import-d-types';
+%}
 
 %inline %{
 class C {
@@ -18,4 +20,5 @@ class C {
     D dValue;
 };
 %}
+
 
