@@ -118,7 +118,6 @@ public:
   };
 
 
-  File *typesFilePtr;
 
   explicit TsTypeInterface(TsType type) : tsType(type)
   {
@@ -136,7 +135,7 @@ public:
     Delete(variableClassCode);
     Delete(tsTypeExtraCode);
   }
-  void generateTsTypes();
+  String *emitTsTypes();
   void setClassName(String *name) { className = Copy(name); }
   void setBaseClassName(String *name) { baseClassName = Copy(name); }
   void addMemberVariable(Node *n, String *typescriptType);
@@ -357,8 +356,14 @@ public:
   TsTypeInterface *tsTypeEnumDeclaration;
   File *declarationFilePtr;
 
-  TypeScriptTypes() : generateTsTypes(false) {}
+  TypeScriptTypes() : generateTsTypes(false), interfaceCode(NewStringEmpty()),
+                      importCode(NewStringEmpty()) {}
+  ~TypeScriptTypes() {
+    Delete(interfaceCode);
+    Delete(importCode);
+  }
   virtual int classHandler(Node *n);
+  virtual int pragmaDirective(Node *n);
   virtual int membervariableHandler(Node *n);
   virtual int memberfunctionHandler(Node *n);
   virtual int enumDeclaration(Node *n);
@@ -367,6 +372,9 @@ public:
   virtual int top(Node *n);
 
 private:
+  String *interfaceCode;
+  String *importCode;
+
   String *getBaseClass(Node *n);
   String *getTsTypeName(SwigType *t);
   String *typemapLookup(Node *n, const char *typemapName, SwigType *type);
@@ -2592,9 +2600,9 @@ void Template::operator=(const Template & t) {
 /**
  * Generate the code of the interface using the collected information
  */
-void TsTypeInterface::generateTsTypes()
+String *TsTypeInterface::emitTsTypes()
 {
-
+  String *typeStr = NewStringEmpty();
   String *tsTypeName;
   switch (tsType)
   {
@@ -2606,14 +2614,14 @@ void TsTypeInterface::generateTsTypes()
     break;
   }
 
-  Printf(typesFilePtr, "%s %s ", tsTypeName, className);
+  Printf(typeStr, "%s %s ", tsTypeName, className);
 
   if ( baseClassName != NULL)
   {
-    Printf(typesFilePtr, "extends %s ", baseClassName);
+    Printf(typeStr, "extends %s ", baseClassName);
   }
-  Printf(typesFilePtr, "{\n");
-  Printf(typesFilePtr, "%s", variableClassCode);
+  Printf(typeStr, "{\n");
+  Printf(typeStr, "%s", variableClassCode);
 
   List *keys = Keys(functionList);
   if (Len(keys) > 0)
@@ -2621,13 +2629,14 @@ void TsTypeInterface::generateTsTypes()
     for (Iterator it = First(keys); it.item; it = Next(it))
     {
       Node *function = Getattr(functionList, it.item);
-      Printf(typesFilePtr, "   %s?: Function;\n", Getattr(function,"sym:name") );
+      Printf(typeStr, "   %s?: Function;\n", Getattr(function,"sym:name") );
     }
   }
 
   if ( tsTypeExtraCode != NULL )
-    Printf(typesFilePtr, "\n%s", tsTypeExtraCode);
-  Printf(typesFilePtr, "}\n\n");
+    Printf(typeStr, "\n%s", tsTypeExtraCode);
+  Printf(typeStr, "}\n\n");
+  return typeStr;
 }
 
 /**
@@ -2704,19 +2713,10 @@ int TypeScriptTypes::top(Node *n) {
     }
     Delete(typesFilePath);
     Delete(moduleNameKebabCase);
-    String *tsImportsLanguage = NewString("javascript");
-    String *tsImportsName = NewString("tsimports");
-    Node *tsImportsPragma = findPragma(n,tsImportsLanguage, tsImportsName);
-    if (tsImportsPragma) {
-      String *tsImportsStr = NewString(Getattr(tsImportsPragma,"value"));
-      Replaceall(tsImportsStr, "\\\"", "\"");
-      Printf(declarationFilePtr, "%s\n", tsImportsStr);
-      Delete(tsImportsStr);
-    }
-    Delete(tsImportsLanguage);
-    Delete(tsImportsName);
   }
   Language::top(n);
+  Printf(declarationFilePtr, "%s", importCode);
+  Printf(declarationFilePtr, "%s", interfaceCode);
   return SWIG_OK;
 }
 
@@ -2739,8 +2739,9 @@ int TypeScriptTypes::classHandler(Node *n)
   if (generateTsTypes)
   {
     tsTypeInterfaceDeclaration->setBaseClassName(getBaseClass(n));
-    tsTypeInterfaceDeclaration->typesFilePtr = declarationFilePtr;
-    tsTypeInterfaceDeclaration->generateTsTypes();
+    String *tmpInterfaceCode = tsTypeInterfaceDeclaration->emitTsTypes();
+    Append(interfaceCode,tmpInterfaceCode);
+    Delete(tmpInterfaceCode);
     delete tsTypeInterfaceDeclaration;
     tsTypeInterfaceDeclaration = NULL;
   }
@@ -2748,37 +2749,29 @@ int TypeScriptTypes::classHandler(Node *n)
 }
 
 /**
- * Navigate in the parse tree until find a specific pragma to a language
- * or reach the end without finding it.
+ * Handler executed when a pragma is found in the Parse Tree
  *
- * @param top The node that is the root of the parse tree
- * @param lang Target language
- * @param name Name of the pragma
- * @return The pragma node or NULL if not found
+ * @param n The node found that have the type %pragma
  */
-Node *TypeScriptTypes::findPragma(Node *top, String *lang, String *name) {
-  Node *c;
-  for (c = firstChild(top); c; c = nextSibling(c)) {
-    if ( firstChild(c) ) {
-      Node *p = findPragma(c,lang,name);
-      if (p) {
-        return p;
-      }
+int TypeScriptTypes::pragmaDirective(Node *n) {
+  if (generateTsTypes)
+  {
+    String *tsImportsLanguage = NewString("javascript");
+    String *tsImportsName = NewString("tsimports");
+    String *nodeLang = Getattr(n, "lang");
+    String *nodeName = Getattr(n, "name");
+    if ( Strcmp(nodeLang,tsImportsLanguage) == 0 && Strcmp(nodeName, tsImportsName) == 0) {
+      String *tsImportsStr = NewString(Getattr(n,"value"));
+      Replaceall(tsImportsStr, "\\\"", "\"");
+      Delete(importCode);
+      importCode = NewStringEmpty();
+      Printf(importCode, "%s\n", tsImportsStr);
+      Delete(tsImportsStr);
     }
-    char *tag = Char(nodeType(c));
-
-    if (Getattr(c, "error"))
-      continue;
-
-    if (strcmp(tag, "pragma") == 0) {
-      String *nodeLang = Getattr(c, "lang");
-      String *nodeName = Getattr(c, "name");
-      if ( Strcmp(nodeLang,lang) == 0 && Strcmp(nodeName, name) == 0) {
-        return c;
-      }
-    }
+    Delete(tsImportsLanguage);
+    Delete(tsImportsName);
   }
-  return NULL;
+  return Language::pragmaDirective(n);
 }
 
 /**
@@ -2813,8 +2806,9 @@ int TypeScriptTypes::enumDeclaration(Node *n)
   Language::enumDeclaration(n);
   if (generateTsTypes)
   {
-    tsTypeEnumDeclaration->typesFilePtr = declarationFilePtr;
-    tsTypeEnumDeclaration->generateTsTypes();
+    String *tmpInterfaceCode = tsTypeEnumDeclaration->emitTsTypes();
+    Append(interfaceCode,tmpInterfaceCode);
+    Delete(tmpInterfaceCode);
     delete tsTypeEnumDeclaration;
     tsTypeEnumDeclaration = NULL;
   }

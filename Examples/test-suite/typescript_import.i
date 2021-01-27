@@ -4,6 +4,14 @@
 #include "typescript_d.h"
 %}
 
+%pragma(javascript) tsimports=%{
+import { X } from './typescript-import-d-types';
+%}
+
+%pragma(javascript) tsimports=%{
+import { D } from './typescript-import-d-types';
+%}
+
 %inline %{
 class C {
   public:
@@ -13,7 +21,4 @@ class C {
 };
 %}
 
-%pragma(javascript) tsimports=%{
-import { D } from './typescript-import-d-types';
-%}
 
