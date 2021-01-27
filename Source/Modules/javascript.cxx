@@ -2756,11 +2756,9 @@ int TypeScriptTypes::classHandler(Node *n)
 int TypeScriptTypes::pragmaDirective(Node *n) {
   if (generateTsTypes)
   {
-    String *tsImportsLanguage = NewString("javascript");
-    String *tsImportsName = NewString("tsimports");
     String *nodeLang = Getattr(n, "lang");
     String *nodeName = Getattr(n, "name");
-    if ( Strcmp(nodeLang,tsImportsLanguage) == 0 && Strcmp(nodeName, tsImportsName) == 0) {
+    if ( Strcmp(nodeLang,"javascript") == 0 && Strcmp(nodeName, "tsimports") == 0) {
       String *tsImportsStr = NewString(Getattr(n,"value"));
       Replaceall(tsImportsStr, "\\\"", "\"");
       Delete(importCode);
@@ -2768,8 +2766,6 @@ int TypeScriptTypes::pragmaDirective(Node *n) {
       Printf(importCode, "%s\n", tsImportsStr);
       Delete(tsImportsStr);
     }
-    Delete(tsImportsLanguage);
-    Delete(tsImportsName);
   }
   return Language::pragmaDirective(n);
 }
