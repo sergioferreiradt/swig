@@ -380,8 +380,6 @@ private:
   String *typemapLookup(Node *n, const char *typemapName, SwigType *type);
   Node *findPragma(Node *node, String *lang, String *name);
   String *getTypescriptType(Node *n);
-  // void generateBaseInterfaces(Node *topNode);
-  // void generateBaseInterface(Node *topNode, const char *interfaceName);
   const char *optionalModifier(Node *n);
 
   void emitDeclarationIndex();
@@ -3034,9 +3032,7 @@ String *TypeScriptTypes::getTypescriptType(Node *n)
 const char *TypeScriptTypes::optionalModifier(Node *n) {
   if (Swig_typemap_lookup("typescriptoptional", n, "", 0))
   {
-    Printf(stdout,"======== Found typescriptOptional\n");
     return "?";
   }
-  Printf(stdout,"======== NOT Found typescriptOptional\n");
   return "";
 }
