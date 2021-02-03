@@ -138,7 +138,7 @@ public:
   String *emitTsTypes();
   void setClassName(String *name) { className = Copy(name); }
   void setBaseClassName(String *name) { baseClassName = Copy(name); }
-  void addMemberVariable(Node *n, String *typescriptType);
+  void addMemberVariable(Node *n, String *typescriptType, const char *optionalModifier);
   void addMemberFunction(Node *n);
   void addEnumValue(Node *n, String *value);
   void insertCode(String *code);
@@ -380,8 +380,9 @@ private:
   String *typemapLookup(Node *n, const char *typemapName, SwigType *type);
   Node *findPragma(Node *node, String *lang, String *name);
   String *getTypescriptType(Node *n);
-  void generateBaseInterfaces(Node *topNode);
-  void generateBaseInterface(Node *topNode, const char *interfaceName);
+  // void generateBaseInterfaces(Node *topNode);
+  // void generateBaseInterface(Node *topNode, const char *interfaceName);
+  const char *optionalModifier(Node *n);
 
   void emitDeclarationIndex();
 
@@ -2645,9 +2646,9 @@ String *TsTypeInterface::emitTsTypes()
  * @param n The node where the public variable is declared
  * @param typescriptType The proper type TypeScript type to be added to the member declaration
  */
-void TsTypeInterface::addMemberVariable(Node *n, String *typescriptType)
+void TsTypeInterface::addMemberVariable(Node *n, String *typescriptType, const char *optionalModifier)
 {
-  Printf(variableClassCode, "   %s: %s;\n", Getattr(n, "sym:name"), typescriptType);
+  Printf(variableClassCode, "   %s%s: %s;\n", Getattr(n, "sym:name"), optionalModifier, typescriptType);
 }
 
 /**
@@ -2781,7 +2782,7 @@ int TypeScriptTypes::membervariableHandler(Node *n)
   if (generateTsTypes)
   {
     String *typescriptType = getTypescriptType(n);
-    tsTypeInterfaceDeclaration->addMemberVariable(n, typescriptType);
+    tsTypeInterfaceDeclaration->addMemberVariable(n, typescriptType, optionalModifier(n));
   }
   return Language::membervariableHandler(n);
 }
@@ -3024,3 +3025,18 @@ String *TypeScriptTypes::getTypescriptType(Node *n)
   return typescriptType;
 }
 
+/**
+ * Analize if the type of the node have is marked as optinal by using "typescriptoptional" typemap
+ *
+ * @param n The node to be analized
+ * @return "?" if is optional, empty char *otherwise
+ */
+const char *TypeScriptTypes::optionalModifier(Node *n) {
+  if (Swig_typemap_lookup("typescriptoptional", n, "", 0))
+  {
+    Printf(stdout,"======== Found typescriptOptional\n");
+    return "?";
+  }
+  Printf(stdout,"======== NOT Found typescriptOptional\n");
+  return "";
+}

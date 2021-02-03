@@ -35,7 +35,8 @@ TS_TEST_CASES = \
 	typescript_two_interfaces \
 	typescript_inheritance \
 	typescript_multiple_inheritance \
-	typescript_import
+	typescript_import \
+	typescript_optional
 
 CPP_TEST_CASES := $(TS_TEST_CASES)
 
@@ -86,7 +87,7 @@ ifeq (node,$(JSENGINE))
 		$(setup_node) && \
 		$(MAKE) -f $(top_builddir)/$(EXAMPLES)/Makefile SRCDIR='$(SRCDIR)' \
 		SWIG_LIB_DIR='$(SWIG_LIB_DIR)' SWIGEXE='$(SWIGEXE)' \
-		SWIGOPT='-c++ -javascript $(SWIGOPT) $(srcdir)/../$*.i' swiginvoke && \
+		SWIGOPT='-c++ -javascript  -debug-typemap $(SWIGOPT) $(srcdir)/../$*.i' swiginvoke && \
 		MAKEFLAGS= $(COMPILETOOL) $(NODEGYP) --loglevel=silent --directory $* configure build 1>>/dev/null
 
 	run_testcase = \
