@@ -138,7 +138,7 @@ public:
   String *emitTsTypes();
   void setClassName(String *name) { className = Copy(name); }
   void setBaseClassName(String *name) { baseClassName = Copy(name); }
-  void addMemberVariable(Node *n, String *typescriptType, const char *optionalModifier);
+  void addMemberVariable(Node *n, String *typescriptType, String *optionalModifier);
   void addMemberFunction(Node *n);
   void addEnumValue(Node *n, String *value);
   void insertCode(String *code);
@@ -380,7 +380,8 @@ private:
   String *typemapLookup(Node *n, const char *typemapName, SwigType *type);
   Node *findPragma(Node *node, String *lang, String *name);
   String *getTypescriptType(Node *n);
-  const char *optionalModifier(Node *n);
+  String *optionalModifier(Node *n);
+  String *fixTemplateName(String *s);
 
   void emitDeclarationIndex();
 
@@ -2639,14 +2640,26 @@ String *TsTypeInterface::emitTsTypes()
 }
 
 /**
- * Add a class member variable
+ * Add a class member variable.
+ * If the optional modifier is set and have content, then it is marked and used as Type name
+ * If the optional modifier is set and have no content, is marked as optinal with origibal type
+ * Otherwise, the original type is used without being marked as optional
  *
  * @param n The node where the public variable is declared
  * @param typescriptType The proper type TypeScript type to be added to the member declaration
+ * @param optionalModifier Optional modifier type name
  */
-void TsTypeInterface::addMemberVariable(Node *n, String *typescriptType, const char *optionalModifier)
+void TsTypeInterface::addMemberVariable(Node *n, String *typescriptType, String *optionalModifier)
 {
-  Printf(variableClassCode, "   %s%s: %s;\n", Getattr(n, "sym:name"), optionalModifier, typescriptType);
+  if (optionalModifier) {
+    if ( Len(optionalModifier) <= 0 ) {
+      Printf(variableClassCode, "   %s?: %s;\n", Getattr(n, "sym:name"), typescriptType);
+    } else {
+      Printf(variableClassCode, "   %s?: %s;\n", Getattr(n, "sym:name"), optionalModifier);
+    }
+  } else {
+    Printf(variableClassCode, "   %s: %s;\n", Getattr(n, "sym:name"), typescriptType);
+  }
 }
 
 /**
@@ -3024,15 +3037,68 @@ String *TypeScriptTypes::getTypescriptType(Node *n)
 }
 
 /**
- * Analize if the type of the node have is marked as optinal by using "typescriptoptional" typemap
+ * In some cases the complete name of the type does not match to the one
+ * existing in the symbol table due to lacking of "(" after "<" in
+ * the case of templates.
+ * If the type name does not comply, fix it. Ex:
+ *   templateType<baseType> => templateType<(baseType)> 
  *
- * @param n The node to be analized
- * @return "?" if is optional, empty char *otherwise
+ * @param The type name
+ * @return a new string with a corrected nomenclature
  */
-const char *TypeScriptTypes::optionalModifier(Node *n) {
-  if (Swig_typemap_lookup("typescriptoptional", n, "", 0))
-  {
-    return "?";
+String *TypeScriptTypes::fixTemplateName(String *templateName) {
+  char *str = Char(templateName);
+  String *newString = NewStringEmpty();
+
+  while ( *str != '\0' ) {
+    if ( *str == '>' && *(str-1) != ')' ) {
+      Printf(newString,")");
+    }
+    Printf(newString,"%c", *str);
+    if ( *str == '<' && *(str+1) != '(' && *(str+1) != '\0' ) {
+      Printf(newString,"(", *str);
+    }
+    str++;
   }
-  return "";
+  return newString;
+}
+
+/**
+ * Analize if the type of the node have is marked as optinal by using "typescriptoptional" typemap
+ * If does not exist or "optional" typemap modifier is not set to "1" return NULL
+ * If exist and modifier "optional" is set to "1" obtain the name of the class without namescpace
+ * scope.
+ *
+ * @param n The node to be checked if it should be defined as optional
+ * @return A string containing the name of the type
+ */
+String *TypeScriptTypes::optionalModifier(Node *n) {
+  String *typemapCode = Swig_typemap_lookup("typescriptoptional", n, "", 0);
+  String *optionalAttribute = Getattr(n,"tmap:typescriptoptional:optional");
+  if (  !optionalAttribute || !typemapCode) {
+    return NULL;
+  }
+  if ( Strcmp(Getattr(n,"tmap:typescriptoptional:optional"), "1") != 0 ) {
+    return NULL;
+  }
+
+  // Check if a specific TypeScript typemap exists and if so use as conversion
+  Node *node = NewHash();
+  Setattr(node, "type", typemapCode);
+  Setfile(node, Getfile(n));
+  Setline(node, Getline(n));
+  String *simpleTypemapCode = Swig_typemap_lookup("typescripttype", node, "", 0);
+  if ( simpleTypemapCode ) {
+    return simpleTypemapCode;
+  }
+
+  // Obtain the symtab where the type defined as typemap code is described to obtain the name
+  // without namespace scope
+  String *typeName = fixTemplateName(typemapCode);
+  Node *nodeSym = Swig_symbol_clookup(typeName, NULL);
+  Delete(typeName);
+  if ( nodeSym ) {
+    return Getattr(nodeSym,"sym:name");
+  }
+  return NULL;
 }
