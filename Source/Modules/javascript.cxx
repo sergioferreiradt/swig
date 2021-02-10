@@ -381,7 +381,6 @@ private:
   Node *findPragma(Node *node, String *lang, String *name);
   String *getTypescriptType(Node *n);
   String *optionalModifier(Node *n);
-  String *fixTemplateName(String *s);
 
   void emitDeclarationIndex();
 
@@ -2641,8 +2640,8 @@ String *TsTypeInterface::emitTsTypes()
 
 /**
  * Add a class member variable.
- * If the optional modifier is set and have content, then it is marked and used as Type name
- * If the optional modifier is set and have no content, is marked as optinal with origibal type
+ * If the optional modifier is set and has content, then it is marked and used as Type name
+ * If the optional modifier is set but is empty, is marked as optional with original type
  * Otherwise, the original type is used without being marked as optional
  *
  * @param n The node where the public variable is declared
@@ -3037,33 +3036,6 @@ String *TypeScriptTypes::getTypescriptType(Node *n)
 }
 
 /**
- * In some cases the complete name of the type does not match to the one
- * existing in the symbol table due to lacking of "(" after "<" in
- * the case of templates.
- * If the type name does not comply, fix it. Ex:
- *   templateType<baseType> => templateType<(baseType)> 
- *
- * @param The type name
- * @return a new string with a corrected nomenclature
- */
-String *TypeScriptTypes::fixTemplateName(String *templateName) {
-  char *str = Char(templateName);
-  String *newString = NewStringEmpty();
-
-  while ( *str != '\0' ) {
-    if ( *str == '>' && *(str-1) != ')' ) {
-      Printf(newString,")");
-    }
-    Printf(newString,"%c", *str);
-    if ( *str == '<' && *(str+1) != '(' && *(str+1) != '\0' ) {
-      Printf(newString,"(", *str);
-    }
-    str++;
-  }
-  return newString;
-}
-
-/**
  * Analize if the type of the node have is marked as optinal by using "typescriptoptional" typemap
  * If does not exist or "optional" typemap modifier is not set to "1" return NULL
  * If exist and modifier "optional" is set to "1" obtain the name of the class without namescpace
@@ -3083,6 +3055,11 @@ String *TypeScriptTypes::optionalModifier(Node *n) {
   }
 
   // Check if a specific TypeScript typemap exists and if so use as conversion
+  // unsigned swig representation is allways converted to "unsigned int" and
+  // typemap search does not work eve if defined for  "unsigned"
+  if ( Strcmp(typemapCode, "unsigned") == 0 ) {
+    Append(typemapCode, " int");
+  }
   Node *node = NewHash();
   Setattr(node, "type", typemapCode);
   Setfile(node, Getfile(n));
@@ -3094,9 +3071,9 @@ String *TypeScriptTypes::optionalModifier(Node *n) {
 
   // Obtain the symtab where the type defined as typemap code is described to obtain the name
   // without namespace scope
-  String *typeName = fixTemplateName(typemapCode);
-  Node *nodeSym = Swig_symbol_clookup(typeName, NULL);
-  Delete(typeName);
+  Replace(typemapCode,"<","<(",DOH_REPLACE_ANY);
+  Replace(typemapCode,">",")>",DOH_REPLACE_ANY);
+  Node *nodeSym = Swig_symbol_clookup(typemapCode, NULL);
   if ( nodeSym ) {
     return Getattr(nodeSym,"sym:name");
   }

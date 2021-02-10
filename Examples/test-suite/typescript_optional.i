@@ -11,16 +11,15 @@ class OptionalValue
 %}
 
 %typemap (typescriptoptional, optional="1") OptionalValue<nm::D> "nm::D";
-//%typemap (typescriptoptional, optional="1") OptionalValue<nm::A> "nm::A";
 %typemap (typescriptoptional, optional="1") OptionalValue<int> "int";
 %typemap (typescriptoptional, optional="0") OptionalValue<long> "long";
-%typemap (typescriptoptional, optional="1") OptionalValue<unsigned int> "unsigned";
+%typemap (typescriptoptional, optional="1") OptionalValue<unsigned> "unsigned";
 %typemap (typescriptoptional, optional="1") OptionalValue<nm::Foo> "nm::Foo";
 
 %template(OptionalD) OptionalValue<nm::D>;
 %template(OptionalInt) OptionalValue<int>;
 %template(OptionalLong) OptionalValue<long>;
-%template(OptionalUnsigned) OptionalValue<unsigned int>;
+%template(OptionalUnsigned) OptionalValue<unsigned>;
 
 
 %inline %{
