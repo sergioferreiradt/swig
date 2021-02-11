@@ -3036,10 +3036,13 @@ String *TypeScriptTypes::getTypescriptType(Node *n)
 }
 
 /**
- * Analize if the type of the node have is marked as optinal by using "typescriptoptional" typemap
- * If does not exist or "optional" typemap modifier is not set to "1" return NULL
- * If exist and modifier "optional" is set to "1" obtain the name of the class without namescpace
- * scope.
+ * Analyze if the type of the node have is marked as optional by using "typescriptoptional" typemap
+ * If it doesn't exist or is "optional", typemap modifier is not set to "1" return NULL
+ * If it exists and modifier "optional" is set to "1", obtain the name of the class without namespace
+ *
+ * TODO : Appending int to unsigned and add () inside templates <> should be done with
+ * proper conversion (C++->Swig internal type representation). A function should exist inside swig
+ * to do this task in a proper and generic way. Should be changed as soon as possible.
  *
  * @param n The node to be checked if it should be defined as optional
  * @return A string containing the name of the type
@@ -3056,7 +3059,7 @@ String *TypeScriptTypes::optionalModifier(Node *n) {
 
   // Check if a specific TypeScript typemap exists and if so use as conversion
   // unsigned swig representation is allways converted to "unsigned int" and
-  // typemap search does not work eve if defined for  "unsigned"
+  // typemap search does not work even if defined for "unsigned"
   if ( Strcmp(typemapCode, "unsigned") == 0 ) {
     Append(typemapCode, " int");
   }
