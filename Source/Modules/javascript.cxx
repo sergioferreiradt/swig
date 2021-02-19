@@ -2838,7 +2838,15 @@ int TypeScriptTypes::enumvalueDeclaration(Node *n)
 
 /**
  * Handler executed in tree navigation when it encounters a class
- * member function
+ * member function.
+ *
+ * For TypeScript emits the prototype for the function wth returning type,
+ * parameters and corresponding parameters.
+ *
+ * As an example, for a C++ public function declared as:
+ *   int sum(int a,int b) { return a+b;}
+ * TypeScript emited will be:
+ *   sum?(a:number, b:number) : number;
  *
  * @param n The node that represents class member function
  * @return SWIG status
@@ -2851,17 +2859,14 @@ int TypeScriptTypes::memberfunctionHandler(Node *n)
     String *functionPrototype = NewString(functionName);
     Append(functionPrototype,"?(");
     ParmList *l = Getattr(n, "parms");
-    Parm *p;
-    int i;
-    for (i = 0, p = l; p; i++) {
-      if ( i > 0) {
-        Append(functionPrototype,", ");
+    for (Parm* p = l; p; p = nextSibling(p)) {
+      if ( p != l ) {
+        Append(functionPrototype, ", ");
       }
       Printf(functionPrototype, "%s:%s", Getattr(p,"name"), getTypescriptType(p));
       p = nextSibling(p);
     }
-    String *typescriptType = getTypescriptType(n);
-    Printf(functionPrototype, ") : %s;", typescriptType);
+    Printf(functionPrototype, ") : %s;", getTypescriptType(n));
     tsTypeInterfaceDeclaration->addMemberFunction(functionName, functionPrototype);
   }
   return Language::memberfunctionHandler(n);

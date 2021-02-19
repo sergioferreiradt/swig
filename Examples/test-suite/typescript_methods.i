@@ -12,7 +12,7 @@ class C {
     float floatValue;
     int sum(int a,int b) { return a+b;}
     void funcWithStdString(std::string str) { }
-    A funcWithClass(C cVar) { }
+    A funcWithClass(C cVar) { return A(); }
 };
 %}
 
