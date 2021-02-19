@@ -139,7 +139,7 @@ public:
   void setClassName(String *name) { className = Copy(name); }
   void setBaseClassName(String *name) { baseClassName = Copy(name); }
   void addMemberVariable(Node *n, String *typescriptType, String *optionalModifier);
-  void addMemberFunction(Node *n);
+  void addMemberFunction(String *functionName, String *functionPrototype);
   void addEnumValue(Node *n, String *value);
   void insertCode(String *code);
 
@@ -2627,8 +2627,7 @@ String *TsTypeInterface::emitTsTypes()
   {
     for (Iterator it = First(keys); it.item; it = Next(it))
     {
-      Node *function = Getattr(functionList, it.item);
-      Printf(typeStr, "   %s?: Function;\n", Getattr(function,"sym:name") );
+      Printf(typeStr, "   %s\n", Getattr(functionList, it.item));
     }
   }
 
@@ -2667,13 +2666,9 @@ void TsTypeInterface::addMemberVariable(Node *n, String *typescriptType, String 
  * @param n The node where the public variable is declared
  * @param typescriptType The proper type TypeScript type to be added to the member declaration
  */
-void TsTypeInterface::addMemberFunction(Node *n)
+void TsTypeInterface::addMemberFunction(String *functionName, String *functionPrototype)
 {
-  String *functionName = Getattr(n, "sym:name");
-  if (!Getattr(functionList, functionName))
-  {
-    Setattr(functionList, functionName, n);
-  }
+    Setattr(functionList, functionName, functionPrototype);
 }
 
 /**
@@ -2852,7 +2847,22 @@ int TypeScriptTypes::memberfunctionHandler(Node *n)
 {
   if (generateTsTypes)
   {
-    tsTypeInterfaceDeclaration->addMemberFunction(n);
+    String *functionName = Getattr(n, "sym:name");
+    String *functionPrototype = NewString(functionName);
+    Append(functionPrototype,"?(");
+    ParmList *l = Getattr(n, "parms");
+    Parm *p;
+    int i;
+    for (i = 0, p = l; p; i++) {
+      if ( i > 0) {
+        Append(functionPrototype,", ");
+      }
+      Printf(functionPrototype, "%s:%s", Getattr(p,"name"), getTypescriptType(p));
+      p = nextSibling(p);
+    }
+    String *typescriptType = getTypescriptType(n);
+    Printf(functionPrototype, ") : %s;", typescriptType);
+    tsTypeInterfaceDeclaration->addMemberFunction(functionName, functionPrototype);
   }
   return Language::memberfunctionHandler(n);
 }
