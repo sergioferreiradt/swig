@@ -36,7 +36,8 @@ TS_TEST_CASES = \
 	typescript_inheritance \
 	typescript_multiple_inheritance \
 	typescript_import \
-	typescript_optional
+	typescript_optional \
+	typescript_methods
 
 CPP_TEST_CASES := $(TS_TEST_CASES)
 

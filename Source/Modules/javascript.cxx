@@ -2846,7 +2846,7 @@ int TypeScriptTypes::enumvalueDeclaration(Node *n)
  * As an example, for a C++ public function declared as:
  *   int sum(int a,int b) { return a+b;}
  * TypeScript emited will be:
- *   sum?(a:number, b:number) : number;
+ *   sum(a:number, b:number) : number;
  *
  * @param n The node that represents class member function
  * @return SWIG status
@@ -2857,7 +2857,7 @@ int TypeScriptTypes::memberfunctionHandler(Node *n)
   {
     String *functionName = Getattr(n, "sym:name");
     String *functionPrototype = NewString(functionName);
-    Append(functionPrototype,"?(");
+    Append(functionPrototype,"(");
     ParmList *l = Getattr(n, "parms");
     for (Parm* p = l; p; p = nextSibling(p)) {
       if ( p != l ) {
